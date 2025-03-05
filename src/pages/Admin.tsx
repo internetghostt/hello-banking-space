@@ -3,12 +3,12 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { User, LogOut, UserPlus, Lock, Plus } from "lucide-react";
+import { User, LogOut, UserPlus, Lock, Plus, Pencil, Trash2 } from "lucide-react";
 
 interface UserAccount {
   id: string;
   email: string;
-  password?: string; // Added password for user accounts
+  password?: string;
   balance: number;
   status: 'active' | 'frozen';
   role: 'user' | 'admin';
@@ -48,7 +48,9 @@ const Admin = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showAddBalanceForm, setShowAddBalanceForm] = useState<string | null>(null);
+  const [showEditForm, setShowEditForm] = useState<string | null>(null);
   const [newUser, setNewUser] = useState({ email: "", password: "" });
+  const [editUser, setEditUser] = useState<{ email: string; password: string }>({ email: "", password: "" });
   const [balanceToAdd, setBalanceToAdd] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -201,6 +203,82 @@ const Admin = () => {
     setShowCreateForm(false);
   };
 
+  // Edit user function
+  const handleEditUser = (userId: string) => {
+    if (!editUser.email) {
+      toast({
+        title: "Invalid input",
+        description: "Email cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if email already exists but not from the same user
+    if (users.some(user => user.email === editUser.email && user.id !== userId)) {
+      toast({
+        title: "Email already exists",
+        description: "Another user with this email already exists",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updatedUsers = users.map(user => {
+      if (user.id === userId) {
+        const updatedUser = {
+          ...user,
+          email: editUser.email,
+        };
+        
+        // Only update password if a new one was provided
+        if (editUser.password) {
+          updatedUser.password = editUser.password;
+        }
+        
+        toast({
+          title: "Account updated",
+          description: `${user.email}'s account has been updated successfully`,
+        });
+        
+        return updatedUser;
+      }
+      return user;
+    });
+    
+    setUsers(updatedUsers);
+    localStorage.setItem("users", JSON.stringify(updatedUsers));
+    setShowEditForm(null);
+    setEditUser({ email: "", password: "" });
+  };
+
+  // Delete user function
+  const handleDeleteUser = (userId: string) => {
+    const userToDelete = users.find(user => user.id === userId);
+    if (!userToDelete) return;
+    
+    const updatedUsers = users.filter(user => user.id !== userId);
+    setUsers(updatedUsers);
+    localStorage.setItem("users", JSON.stringify(updatedUsers));
+    
+    toast({
+      title: "Account deleted",
+      description: `${userToDelete.email}'s account has been deleted successfully`,
+    });
+  };
+
+  // Set up edit form for a user
+  const setupEditForm = (userId: string) => {
+    const userToEdit = users.find(user => user.id === userId);
+    if (userToEdit) {
+      setEditUser({ 
+        email: userToEdit.email, 
+        password: "" // Don't populate the password field for security
+      });
+      setShowEditForm(userId);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -281,6 +359,43 @@ const Admin = () => {
                 </Button>
                 <Button onClick={handleCreateUser}>
                   Create Account
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Edit user form */}
+        {showEditForm && (
+          <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 p-6">
+            <h2 className="text-lg font-medium mb-4">Edit User</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editUser.email}
+                  onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="user@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Password (leave blank to keep current)</label>
+                <input
+                  type="password"
+                  value={editUser.password}
+                  onChange={(e) => setEditUser({ ...editUser, password: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="••••••••"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setShowEditForm(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={() => handleEditUser(showEditForm)}>
+                  Save Changes
                 </Button>
               </div>
             </div>
@@ -377,6 +492,20 @@ const Admin = () => {
                         >
                           <Lock size={14} className="mr-1" />
                           {user.status === 'active' ? 'Freeze' : 'Unfreeze'}
+                        </button>
+                        <button
+                          onClick={() => setupEditForm(user.id)}
+                          className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200"
+                        >
+                          <Pencil size={14} className="mr-1" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200"
+                        >
+                          <Trash2 size={14} className="mr-1" />
+                          Delete
                         </button>
                       </td>
                     </tr>
