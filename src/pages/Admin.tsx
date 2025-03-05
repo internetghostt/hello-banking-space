@@ -8,13 +8,14 @@ import { User, LogOut, UserPlus, Lock, Plus } from "lucide-react";
 interface UserAccount {
   id: string;
   email: string;
+  password?: string; // Added password for user accounts
   balance: number;
   status: 'active' | 'frozen';
   role: 'user' | 'admin';
   createdAt: string;
 }
 
-// Mock user data
+// Mock user data without passwords for initial display
 const mockUsers: UserAccount[] = [
   {
     id: "1",
@@ -71,11 +72,23 @@ const Admin = () => {
       return;
     }
     
-    // Mock fetch user data
-    setTimeout(() => {
-      setUsers(mockUsers);
-      setIsLoading(false);
-    }, 1000);
+    // Check if users exist in localStorage
+    const storedUsers = localStorage.getItem("users");
+    if (storedUsers) {
+      // Use stored users
+      const parsedUsers = JSON.parse(storedUsers);
+      setUsers(parsedUsers);
+    } else {
+      // Initialize with mock users and store in localStorage
+      const usersWithPasswords = mockUsers.map(user => ({
+        ...user,
+        password: `default${user.id}` // Set a default password for mock users
+      }));
+      localStorage.setItem("users", JSON.stringify(usersWithPasswords));
+      setUsers(usersWithPasswords);
+    }
+    
+    setIsLoading(false);
   }, [navigate, toast]);
 
   const handleLogout = () => {
@@ -88,7 +101,7 @@ const Admin = () => {
   };
 
   const handleToggleAccountStatus = (userId: string) => {
-    setUsers(users.map(user => {
+    const updatedUsers = users.map(user => {
       if (user.id === userId) {
         const newStatus = user.status === 'active' ? 'frozen' : 'active';
         
@@ -103,7 +116,10 @@ const Admin = () => {
         };
       }
       return user;
-    }));
+    });
+    
+    setUsers(updatedUsers);
+    localStorage.setItem("users", JSON.stringify(updatedUsers));
   };
 
   const handleAddBalance = (userId: string) => {
@@ -116,7 +132,7 @@ const Admin = () => {
       return;
     }
 
-    setUsers(users.map(user => {
+    const updatedUsers = users.map(user => {
       if (user.id === userId) {
         const amount = Number(balanceToAdd);
         const newBalance = user.balance + amount;
@@ -132,8 +148,10 @@ const Admin = () => {
         };
       }
       return user;
-    }));
+    });
     
+    setUsers(updatedUsers);
+    localStorage.setItem("users", JSON.stringify(updatedUsers));
     setShowAddBalanceForm(null);
     setBalanceToAdd("");
   };
@@ -148,18 +166,31 @@ const Admin = () => {
       return;
     }
 
+    // Check if user already exists
+    if (users.some(user => user.email === newUser.email)) {
+      toast({
+        title: "User already exists",
+        description: "A user with this email already exists",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const newId = (Math.max(...users.map(u => Number(u.id))) + 1).toString();
     
     const newAccount: UserAccount = {
       id: newId,
       email: newUser.email,
+      password: newUser.password,
       balance: 0,
       status: 'active',
       role: 'user',
       createdAt: new Date().toISOString().split('T')[0]
     };
     
-    setUsers([...users, newAccount]);
+    const updatedUsers = [...users, newAccount];
+    setUsers(updatedUsers);
+    localStorage.setItem("users", JSON.stringify(updatedUsers));
     
     toast({
       title: "Account created",

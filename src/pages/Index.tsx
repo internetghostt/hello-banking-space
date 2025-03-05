@@ -48,7 +48,7 @@ const Index = () => {
               variant="outline" 
               size="lg"
               onClick={() => {
-                alert("Demo Credentials:\n\nAdmin: admin@bank.com / admin123\nUser: Any email & password combination");
+                alert("Demo Credentials:\n\nAdmin: admin@bank.com / admin123\n\nNote: Regular users must be created by an admin.");
               }}
               className="px-8"
             >
@@ -57,6 +57,9 @@ const Index = () => {
           </div>
           <p className="mt-4 text-sm text-gray-500">
             For demo purposes: Admin login is admin@bank.com / admin123
+          </p>
+          <p className="mt-2 text-sm text-gray-500">
+            Regular user accounts must be created by an admin
           </p>
         </div>
         <CallToAction />

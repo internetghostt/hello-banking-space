@@ -15,16 +15,23 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simple mock authentication
-    setTimeout(() => {
-      if (email === "admin@bank.com" && password === "admin123") {
-        localStorage.setItem("user", JSON.stringify({ role: "admin", email }));
-        toast({
-          title: "Login successful",
-          description: "Welcome to the admin dashboard",
-        });
-        navigate("/admin");
-      } else if (email && password) {
+    // Get users from localStorage or use empty array if none exist
+    const storedUsers = localStorage.getItem("users");
+    const users = storedUsers ? JSON.parse(storedUsers) : [];
+    
+    // Admin credentials remain hardcoded for demo purposes
+    if (email === "admin@bank.com" && password === "admin123") {
+      localStorage.setItem("user", JSON.stringify({ role: "admin", email }));
+      toast({
+        title: "Login successful",
+        description: "Welcome to the admin dashboard",
+      });
+      navigate("/admin");
+    } else {
+      // Check if user exists in the users created by admin
+      const user = users.find((u: any) => u.email === email);
+      
+      if (user && user.password === password) {
         localStorage.setItem("user", JSON.stringify({ role: "user", email }));
         toast({
           title: "Login successful",
@@ -38,8 +45,9 @@ const Login = () => {
           variant: "destructive",
         });
       }
-      setIsLoading(false);
-    }, 1000);
+    }
+    
+    setIsLoading(false);
   };
 
   return (
