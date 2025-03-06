@@ -15,7 +15,7 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
   const [showTransferForm, setShowTransferForm] = useState(false);
   const [withdrawalAmount, setWithdrawalAmount] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
-  const [recipientEmail, setRecipientEmail] = useState("");
+  const [recipientAccount, setRecipientAccount] = useState("");
   const { toast } = useToast();
 
   const handleWithdrawal = () => {
@@ -97,18 +97,18 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
     }
     
     const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const recipient = users.find((user: UserAccount) => user.email === recipientEmail);
+    const recipient = users.find((user: UserAccount) => user.accountNumber === recipientAccount);
     
     if (!recipient) {
       toast({
         title: "Recipient not found",
-        description: "The recipient email does not exist in our system",
+        description: "The account number does not exist in our system",
         variant: "destructive",
       });
       return;
     }
     
-    if (recipient.email === userData.email) {
+    if (recipient.accountNumber === userData.accountNumber) {
       toast({
         title: "Invalid recipient",
         description: "You cannot transfer funds to yourself",
@@ -122,9 +122,9 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
       id: Date.now().toString(),
       type: "transfer",
       amount: amount,
-      recipientEmail: recipientEmail,
+      recipientAccount: recipientAccount,
       date: new Date().toISOString().split('T')[0],
-      description: `Transfer to ${recipientEmail}`
+      description: `Transfer to account ${recipientAccount}`
     };
     
     const updatedUserData = {
@@ -139,7 +139,7 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
       type: "deposit",
       amount: amount,
       date: new Date().toISOString().split('T')[0],
-      description: `Transfer from ${userData.email}`
+      description: `Transfer from account ${userData.accountNumber || 'Unknown'}`
     };
     
     const updatedRecipient = {
@@ -160,12 +160,12 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
     
     setUserData(updatedUserData);
     setTransferAmount("");
-    setRecipientEmail("");
+    setRecipientAccount("");
     setShowTransferForm(false);
     
     toast({
       title: "Transfer successful",
-      description: `$${amount.toFixed(2)} has been transferred to ${recipientEmail}`,
+      description: `$${amount.toFixed(2)} has been transferred to account ${recipientAccount}`,
     });
   };
 
@@ -229,13 +229,13 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
             <h3 className="font-medium mb-3">Transfer Funds</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Recipient Email</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Recipient Account Number</label>
                 <input
-                  type="email"
-                  value={recipientEmail}
-                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  type="text"
+                  value={recipientAccount}
+                  onChange={(e) => setRecipientAccount(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  placeholder="recipient@example.com"
+                  placeholder="e.g., ACC12345678"
                 />
               </div>
               <div>

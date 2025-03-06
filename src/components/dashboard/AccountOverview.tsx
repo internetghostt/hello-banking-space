@@ -24,7 +24,7 @@ const AccountOverview = ({ userData }: AccountOverviewProps) => {
               <span className={`w-3 h-3 rounded-full ${userData?.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></span>
               <p className="text-xl font-semibold capitalize">{userData?.status}</p>
             </div>
-            <p className="text-sm text-gray-500 mt-2">Last updated: Today</p>
+            <p className="text-sm text-gray-500 mt-2">Account Number: {userData?.accountNumber || 'Not assigned'}</p>
           </div>
         </div>
       </div>

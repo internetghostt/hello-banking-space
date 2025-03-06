@@ -27,14 +27,34 @@ const Dashboard = () => {
     const currentUser = users.find((u: UserAccount) => u.email === user.email);
     
     if (currentUser) {
+      // Ensure account number exists
+      if (!currentUser.accountNumber) {
+        currentUser.accountNumber = `ACC${Math.floor(100000000 + Math.random() * 900000000)}`;
+        
+        // Update the users array
+        const updatedUsers = users.map((u: UserAccount) => 
+          u.email === currentUser.email ? currentUser : u
+        );
+        
+        localStorage.setItem("users", JSON.stringify(updatedUsers));
+        localStorage.setItem("user", JSON.stringify(currentUser));
+      }
+      
       setUserData(currentUser);
     } else {
-      setUserData({
+      // Create account number for new user
+      const accountNumber = `ACC${Math.floor(100000000 + Math.random() * 900000000)}`;
+      
+      const newUserData = {
         ...user,
+        accountNumber,
         balance: user.balance || 0,
         status: user.status || 'active',
         transactions: user.transactions || []
-      });
+      };
+      
+      setUserData(newUserData);
+      localStorage.setItem("user", JSON.stringify(newUserData));
     }
     
     setIsLoading(false);
