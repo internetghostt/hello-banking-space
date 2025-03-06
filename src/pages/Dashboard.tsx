@@ -53,12 +53,30 @@ const Dashboard = () => {
         transactions: user.transactions || []
       };
       
-      setUserData(newUserData);
+      // We need to add this user to the users array to persist transactions
+      const updatedUsers = [...users, newUserData];
+      localStorage.setItem("users", JSON.stringify(updatedUsers));
       localStorage.setItem("user", JSON.stringify(newUserData));
+      
+      setUserData(newUserData);
     }
     
     setIsLoading(false);
   }, [navigate]);
+
+  // Function to update the user data in both state and localStorage
+  const updateUserData = (updatedUser: UserAccount) => {
+    setUserData(updatedUser);
+    
+    // Update in users array
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const updatedUsers = users.map((u: UserAccount) => 
+      u.id === updatedUser.id ? updatedUser : u
+    );
+    
+    localStorage.setItem("users", JSON.stringify(updatedUsers));
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+  };
 
   if (isLoading) {
     return (
@@ -87,7 +105,7 @@ const Dashboard = () => {
             )}
             
             <AccountOverview userData={userData} />
-            <AccountActions userData={userData} setUserData={setUserData} />
+            <AccountActions userData={userData} setUserData={updateUserData} />
             <TransactionsList transactions={userData.transactions} />
           </main>
         </>

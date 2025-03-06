@@ -33,7 +33,7 @@ const TransactionsList = ({ transactions }: TransactionsListProps) => {
                     <p className="font-medium">
                       {transaction.type === 'deposit' ? 'Deposit' : 
                        transaction.type === 'withdrawal' ? 'Withdrawal' : 
-                       `Transfer to ${transaction.recipientEmail}`}
+                       `Transfer to ${transaction.recipientAccount}`}
                     </p>
                     <p className="text-sm text-gray-500">{transaction.date}</p>
                   </div>

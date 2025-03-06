@@ -55,15 +55,7 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
       transactions: [...(userData.transactions || []), newTransaction]
     };
     
-    // Update in localStorage
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const updatedUsers = users.map((user: UserAccount) => 
-      user.id === userData.id ? updatedUserData : user
-    );
-    
-    localStorage.setItem("users", JSON.stringify(updatedUsers));
-    localStorage.setItem("user", JSON.stringify(updatedUserData));
-    
+    // Update in localStorage through the parent component
     setUserData(updatedUserData);
     setWithdrawalAmount("");
     setShowWithdrawalForm(false);
@@ -156,8 +148,8 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
     });
     
     localStorage.setItem("users", JSON.stringify(updatedUsers));
-    localStorage.setItem("user", JSON.stringify(updatedUserData));
     
+    // Update the user data in the parent component
     setUserData(updatedUserData);
     setTransferAmount("");
     setRecipientAccount("");
@@ -180,7 +172,7 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
             disabled={userData?.status === 'frozen'}
             onClick={() => setShowWithdrawalForm(true)}
           >
-            <ArrowUp size={16} />
+            <ArrowUp size={16} className="mr-2" />
             <span>Withdraw Funds</span>
           </Button>
           <Button 
@@ -189,7 +181,7 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
             disabled={userData?.status === 'frozen'}
             onClick={() => setShowTransferForm(true)}
           >
-            <Send size={16} />
+            <Send size={16} className="mr-2" />
             <span>Transfer Funds</span>
           </Button>
         </div>

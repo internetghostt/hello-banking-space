@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -8,7 +7,7 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import CreateUserForm from "@/components/admin/CreateUserForm";
 import EditUserForm from "@/components/admin/EditUserForm";
 import UserTable from "@/components/admin/UserTable";
-import { UserAccount } from "@/types/user";
+import { UserAccount, Transaction } from "@/types/user";
 
 // Mock user data without passwords for initial display
 const mockUsers: UserAccount[] = [
@@ -96,7 +95,7 @@ const Admin = () => {
   const handleToggleAccountStatus = (userId: string) => {
     const updatedUsers = users.map(user => {
       if (user.id === userId) {
-        const newStatus = user.status === 'active' ? 'frozen' : 'active';
+        const newStatus: 'active' | 'frozen' = user.status === 'active' ? 'frozen' : 'active';
         
         toast({
           title: `Account ${newStatus}`,
@@ -147,7 +146,7 @@ const Admin = () => {
         });
         
         // Add a transaction record
-        const newTransaction = {
+        const newTransaction: Transaction = {
           id: Date.now().toString(),
           type: 'deposit',
           amount: amountValue,
