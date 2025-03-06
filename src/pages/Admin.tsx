@@ -103,6 +103,16 @@ const Admin = () => {
           description: `${user.email}'s account has been ${newStatus}`,
         });
         
+        // If this user is logged in, update their status in localStorage
+        const loggedInUser = localStorage.getItem("user");
+        if (loggedInUser) {
+          const parsedUser = JSON.parse(loggedInUser);
+          if (parsedUser.id === userId) {
+            const updatedLoggedInUser = {...parsedUser, status: newStatus};
+            localStorage.setItem("user", JSON.stringify(updatedLoggedInUser));
+          }
+        }
+        
         return {
           ...user,
           status: newStatus
@@ -125,9 +135,10 @@ const Admin = () => {
       return;
     }
 
+    const amountValue = Number(amount);
+    
     const updatedUsers = users.map(user => {
       if (user.id === userId) {
-        const amountValue = Number(amount);
         const newBalance = user.balance + amountValue;
         
         toast({
@@ -135,9 +146,33 @@ const Admin = () => {
           description: `$${amountValue.toFixed(2)} has been added to ${user.email}'s account`,
         });
         
+        // Add a transaction record
+        const newTransaction = {
+          id: Date.now().toString(),
+          type: 'deposit',
+          amount: amountValue,
+          date: new Date().toISOString().split('T')[0],
+          description: 'Deposit by admin'
+        };
+        
+        // If this user is logged in, update their balance in localStorage
+        const loggedInUser = localStorage.getItem("user");
+        if (loggedInUser) {
+          const parsedUser = JSON.parse(loggedInUser);
+          if (parsedUser.id === userId) {
+            const updatedLoggedInUser = {
+              ...parsedUser, 
+              balance: newBalance,
+              transactions: [...(parsedUser.transactions || []), newTransaction]
+            };
+            localStorage.setItem("user", JSON.stringify(updatedLoggedInUser));
+          }
+        }
+        
         return {
           ...user,
-          balance: newBalance
+          balance: newBalance,
+          transactions: [...(user.transactions || []), newTransaction]
         };
       }
       return user;
@@ -167,7 +202,8 @@ const Admin = () => {
       balance: 0,
       status: 'active',
       role: 'user',
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: new Date().toISOString().split('T')[0],
+      transactions: []
     };
     
     const updatedUsers = [...users, newAccount];
@@ -205,6 +241,19 @@ const Admin = () => {
           updatedUser.password = password;
         }
         
+        // If this user is logged in, update their email in localStorage
+        const loggedInUser = localStorage.getItem("user");
+        if (loggedInUser) {
+          const parsedUser = JSON.parse(loggedInUser);
+          if (parsedUser.id === userId) {
+            const updatedLoggedInUser = {...parsedUser, email: email};
+            if (password) {
+              updatedLoggedInUser.password = password;
+            }
+            localStorage.setItem("user", JSON.stringify(updatedLoggedInUser));
+          }
+        }
+        
         toast({
           title: "Account updated",
           description: `${user.email}'s account has been updated successfully`,
@@ -227,6 +276,16 @@ const Admin = () => {
     const updatedUsers = users.filter(user => user.id !== userId);
     setUsers(updatedUsers);
     localStorage.setItem("users", JSON.stringify(updatedUsers));
+    
+    // Check if the deleted user is currently logged in
+    const loggedInUser = localStorage.getItem("user");
+    if (loggedInUser) {
+      const parsedUser = JSON.parse(loggedInUser);
+      if (parsedUser.id === userId) {
+        // Remove the user from localStorage
+        localStorage.removeItem("user");
+      }
+    }
     
     toast({
       title: "Account deleted",
