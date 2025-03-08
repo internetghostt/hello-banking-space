@@ -7,44 +7,44 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    --background: 0 0% 100%;
+    --foreground: 210 11% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 210 11% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 210 11% 15%;
 
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 223 64% 20%; /* Bank of America dark blue */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 201 100% 39%; /* Bank of America light blue */
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 0 0% 95%; /* Light gray background */
+    --muted-foreground: 0 0% 40%; /* Text gray */
 
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 350 78% 49%; /* Bank of America red */
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 350 78% 49%; /* Same as accent/red */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --border: 0 0% 85%;
+    --input: 0 0% 85%;
+    --ring: 223 64% 20%;
 
-    --radius: 0.75rem;
+    --radius: 0.25rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5% 26%;
-    --sidebar-primary: 240 6% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 5% 96%;
-    --sidebar-accent-foreground: 240 6% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-background: 224 100% 13%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 224 100% 13%;
+    --sidebar-accent: 0 0% 20%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 30%;
+    --sidebar-ring: 0 0% 100%;
   }
 
   * {
@@ -62,15 +62,36 @@
   
   /* Custom classes */
   .glass {
-    @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-sm;
+    @apply bg-white shadow-sm;
   }
   
   .card-hover {
-    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+    @apply transition-all duration-300 hover:shadow-md;
   }
   
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Bank of America specific classes */
+  .boa-button-primary {
+    @apply bg-boa-red text-white hover:bg-boa-red/90 transition-colors rounded;
+  }
+
+  .boa-button-secondary {
+    @apply bg-boa-darkBlue text-white hover:bg-boa-darkBlue/90 transition-colors rounded;
+  }
+
+  .boa-container {
+    @apply max-w-7xl mx-auto px-4;
+  }
+
+  .boa-heading {
+    @apply text-boa-darkBlue font-semibold;
+  }
+
+  .boa-link {
+    @apply text-boa-lightBlue hover:underline transition-colors;
   }
 }
 

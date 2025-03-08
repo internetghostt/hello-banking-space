@@ -24,8 +24,8 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				sans: ['Inter', 'system-ui', 'sans-serif'],
-				display: ['SF Pro Display', 'Inter', 'system-ui', 'sans-serif'],
+				sans: ['Benton Sans', 'Arial', 'sans-serif'],
+				display: ['Benton Sans', 'Arial', 'sans-serif'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',
@@ -70,7 +70,17 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+                // Bank of America specific colors
+                boa: {
+                    red: '#E31837',
+                    darkBlue: '#012169',
+                    lightBlue: '#0077C8',
+                    mediumBlue: '#00549f',
+                    grey: '#F2F2F2',
+                    darkGrey: '#666666',
+                    textGrey: '#333333'
+                }
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
