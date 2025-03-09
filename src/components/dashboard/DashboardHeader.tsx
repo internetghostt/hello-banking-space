@@ -1,26 +1,15 @@
 
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
 import { User, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardHeaderProps {
   userEmail: string;
 }
 
 const DashboardHeader = ({ userEmail }: DashboardHeaderProps) => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    toast({
-      title: "Logged out",
-      description: "You have been logged out successfully",
-    });
-    navigate("/login");
-  };
+  const { logout } = useAuth();
 
   return (
     <header className="bg-primary text-white p-4 shadow-md">
@@ -40,9 +29,9 @@ const DashboardHeader = ({ userEmail }: DashboardHeaderProps) => {
           <Button 
             variant="outline" 
             className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
-            onClick={handleLogout}
+            onClick={logout}
           >
-            <LogOut size={16} />
+            <LogOut size={16} className="mr-1" />
             <span>Logout</span>
           </Button>
         </div>

@@ -1,53 +1,49 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { Eye, EyeOff } from "lucide-react";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const { login, isAuthenticated, isLoading, user } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    // Get users from localStorage or use empty array if none exist
-    const storedUsers = localStorage.getItem("users");
-    const users = storedUsers ? JSON.parse(storedUsers) : [];
-    
-    // Admin credentials remain hardcoded for demo purposes
-    if (email === "admin@bank.com" && password === "admin123") {
-      localStorage.setItem("user", JSON.stringify({ role: "admin", email }));
-      toast({
-        title: "Login successful",
-        description: "Welcome to the admin dashboard",
-      });
-      navigate("/admin");
-    } else {
-      // Check if user exists in the users created by admin
-      const user = users.find((u: any) => u.email === email);
-      
-      if (user && user.password === password) {
-        localStorage.setItem("user", JSON.stringify({ role: "user", email }));
-        toast({
-          title: "Login successful",
-          description: "Welcome to your account",
-        });
-        navigate("/dashboard");
+  useEffect(() => {
+    // If user is already authenticated, redirect to the appropriate dashboard
+    if (isAuthenticated && !isLoading) {
+      if (user?.role === "admin") {
+        navigate("/admin");
       } else {
-        toast({
-          title: "Login failed",
-          description: "Invalid email or password",
-          variant: "destructive",
-        });
+        navigate("/dashboard");
       }
     }
+  }, [isAuthenticated, isLoading, navigate, user]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    setIsLoading(false);
+    if (!email || !password) {
+      return; // Form validation will handle this
+    }
+    
+    const success = await login(email, password);
+    
+    if (success) {
+      // Redirect happens in the useEffect above
+      if (user?.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  };
+
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -73,20 +69,32 @@ const Login = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="youremail@example.com"
               required
+              disabled={isLoading}
             />
           </div>
           
           <div className="space-y-2">
             <label htmlFor="password" className="text-sm font-medium text-gray-700">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="••••••••"
-              required
-            />
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary pr-10"
+                placeholder="••••••••"
+                required
+                disabled={isLoading}
+              />
+              <button
+                type="button"
+                onClick={toggleShowPassword}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
           
           <div className="flex items-center justify-between">
@@ -111,9 +119,14 @@ const Login = () => {
             {isLoading ? "Logging in..." : "Log in"}
           </Button>
           
-          <p className="text-center text-sm text-gray-600 mt-4">
-            Don't have an account? Contact an administrator.
-          </p>
+          <div className="text-center mt-4">
+            <p className="text-sm text-gray-600">
+              Don't have an account? Contact an administrator.
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              Demo: admin@bank.com / admin123
+            </p>
+          </div>
         </form>
       </div>
     </div>
