@@ -5,32 +5,42 @@ import { Button } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";
 
 interface CreateUserFormProps {
-  onCreateUser: (email: string, password: string) => void;
+  onCreateUser: (name: string, email: string, password: string) => void;
   onCancel: () => void;
 }
 
 const CreateUserForm: React.FC<CreateUserFormProps> = ({ onCreateUser, onCancel }) => {
-  const [newUser, setNewUser] = useState({ email: "", password: "" });
+  const [newUser, setNewUser] = useState({ name: "", email: "", password: "" });
   const { toast } = useToast();
 
   const handleSubmit = () => {
-    if (!newUser.email || !newUser.password) {
+    if (!newUser.name || !newUser.email || !newUser.password) {
       toast({
         title: "Invalid input",
-        description: "Please provide both email and password",
+        description: "Please provide name, email and password",
         variant: "destructive",
       });
       return;
     }
 
-    onCreateUser(newUser.email, newUser.password);
-    setNewUser({ email: "", password: "" });
+    onCreateUser(newUser.name, newUser.email, newUser.password);
+    setNewUser({ name: "", email: "", password: "" });
   };
 
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 p-6">
       <h2 className="text-lg font-medium mb-4">Create New User</h2>
       <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <input
+            type="text"
+            value={newUser.name}
+            onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            placeholder="John Doe"
+          />
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
           <input

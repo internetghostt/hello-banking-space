@@ -42,7 +42,7 @@ const UserTable: React.FC<UserTableProps> = ({
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
+                  User
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Balance
@@ -62,7 +62,10 @@ const UserTable: React.FC<UserTableProps> = ({
               {users.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{user.email}</div>
+                    {user.name && (
+                      <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                    )}
+                    <div className="text-sm text-gray-900">{user.email}</div>
                     <div className="text-sm text-gray-500">{user.role}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

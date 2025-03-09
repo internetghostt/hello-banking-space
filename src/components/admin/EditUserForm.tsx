@@ -7,41 +7,53 @@ import { UserAccount } from "@/types/user";
 interface EditUserFormProps {
   userId: string;
   users: UserAccount[];
-  onEditUser: (userId: string, email: string, password: string) => void;
+  onEditUser: (userId: string, name: string, email: string, password: string) => void;
   onCancel: () => void;
 }
 
 const EditUserForm: React.FC<EditUserFormProps> = ({ userId, users, onEditUser, onCancel }) => {
-  const [editUser, setEditUser] = useState<{ email: string; password: string }>({ email: "", password: "" });
+  const [editUser, setEditUser] = useState({ name: "", email: "", password: "" });
   const { toast } = useToast();
 
   useEffect(() => {
+    // Find the user to edit
     const userToEdit = users.find(user => user.id === userId);
     if (userToEdit) {
-      setEditUser({ 
-        email: userToEdit.email, 
-        password: "" // Don't populate the password field for security
+      setEditUser({
+        name: userToEdit.name || "",
+        email: userToEdit.email,
+        password: ""
       });
     }
   }, [userId, users]);
 
   const handleSubmit = () => {
-    if (!editUser.email) {
+    if (!editUser.name || !editUser.email) {
       toast({
         title: "Invalid input",
-        description: "Email cannot be empty",
+        description: "Please provide both name and email",
         variant: "destructive",
       });
       return;
     }
 
-    onEditUser(userId, editUser.email, editUser.password);
+    onEditUser(userId, editUser.name, editUser.email, editUser.password);
   };
 
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 p-6">
       <h2 className="text-lg font-medium mb-4">Edit User</h2>
       <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <input
+            type="text"
+            value={editUser.name}
+            onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            placeholder="John Doe"
+          />
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
           <input

@@ -13,6 +13,7 @@ import { UserAccount, Transaction } from "@/types/user";
 const mockUsers: UserAccount[] = [
   {
     id: "1",
+    name: "John Doe",
     email: "johndoe@example.com",
     balance: 5240.50,
     status: 'active',
@@ -21,6 +22,7 @@ const mockUsers: UserAccount[] = [
   },
   {
     id: "2",
+    name: "Jane Doe",
     email: "janedoe@example.com",
     balance: 12750.75,
     status: 'active',
@@ -29,6 +31,7 @@ const mockUsers: UserAccount[] = [
   },
   {
     id: "3",
+    name: "Mike Smith",
     email: "mike@example.com",
     balance: 840.25,
     status: 'frozen',
@@ -181,7 +184,7 @@ const Admin = () => {
     localStorage.setItem("users", JSON.stringify(updatedUsers));
   };
 
-  const handleCreateUser = (email: string, password: string) => {
+  const handleCreateUser = (name: string, email: string, password: string) => {
     // Check if user already exists
     if (users.some(user => user.email === email)) {
       toast({
@@ -196,6 +199,7 @@ const Admin = () => {
     
     const newAccount: UserAccount = {
       id: newId,
+      name: name,
       email: email,
       password: password,
       balance: 0,
@@ -211,13 +215,13 @@ const Admin = () => {
     
     toast({
       title: "Account created",
-      description: `New account for ${email} has been created successfully`,
+      description: `New account for ${name} (${email}) has been created successfully`,
     });
     
     setShowCreateForm(false);
   };
 
-  const handleEditUser = (userId: string, email: string, password: string) => {
+  const handleEditUser = (userId: string, name: string, email: string, password: string) => {
     // Check if email already exists but not from the same user
     if (users.some(user => user.email === email && user.id !== userId)) {
       toast({
@@ -232,6 +236,7 @@ const Admin = () => {
       if (user.id === userId) {
         const updatedUser = {
           ...user,
+          name: name,
           email: email,
         };
         
@@ -245,7 +250,7 @@ const Admin = () => {
         if (loggedInUser) {
           const parsedUser = JSON.parse(loggedInUser);
           if (parsedUser.id === userId) {
-            const updatedLoggedInUser = {...parsedUser, email: email};
+            const updatedLoggedInUser = {...parsedUser, name: name, email: email};
             if (password) {
               updatedLoggedInUser.password = password;
             }
@@ -255,7 +260,7 @@ const Admin = () => {
         
         toast({
           title: "Account updated",
-          description: `${user.email}'s account has been updated successfully`,
+          description: `${user.name || user.email}'s account has been updated successfully`,
         });
         
         return updatedUser;

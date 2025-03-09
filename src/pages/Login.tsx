@@ -123,9 +123,6 @@ const Login = () => {
             <p className="text-sm text-gray-600">
               Don't have an account? Contact an administrator.
             </p>
-            <p className="text-xs text-gray-500 mt-2">
-              Demo: admin@bank.com / admin123
-            </p>
           </div>
         </form>
       </div>
