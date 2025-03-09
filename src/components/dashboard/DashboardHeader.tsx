@@ -6,9 +6,10 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardHeaderProps {
   userEmail: string;
+  userName?: string;  // Make userName optional for backward compatibility
 }
 
-const DashboardHeader = ({ userEmail }: DashboardHeaderProps) => {
+const DashboardHeader = ({ userEmail, userName }: DashboardHeaderProps) => {
   const { logout } = useAuth();
 
   return (
@@ -24,7 +25,10 @@ const DashboardHeader = ({ userEmail }: DashboardHeaderProps) => {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <User size={18} />
-            <span>{userEmail}</span>
+            <div className="flex flex-col">
+              {userName && <span className="text-sm font-medium">{userName}</span>}
+              <span className="text-xs opacity-80">{userEmail}</span>
+            </div>
           </div>
           <Button 
             variant="outline" 

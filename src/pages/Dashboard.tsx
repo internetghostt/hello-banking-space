@@ -92,12 +92,13 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-50">
       {userData && (
         <>
-          <DashboardHeader userEmail={userData.email} />
+          <DashboardHeader userEmail={userData.email} userName={userData.name} />
           
           <main className="max-w-7xl mx-auto p-4 md:p-6">
-            <h1 className="text-2xl font-bold mb-6">Welcome to Your Dashboard</h1>
+            <h1 className="text-2xl font-bold mb-6">
+              {userData.name ? `Welcome, ${userData.name}` : 'Welcome to Your Dashboard'}
+            </h1>
             
-            {/* Account status alert */}
             {userData.status === 'frozen' && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
                 <p className="font-medium">Your account is currently frozen. Please contact customer support for assistance.</p>
