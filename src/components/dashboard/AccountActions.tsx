@@ -1,9 +1,9 @@
-
 import React, { useState } from "react";
 import { ArrowUp, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { UserAccount, Transaction } from "@/types/user";
+import { DatabaseService } from "@/services/databaseService";
 
 interface AccountActionsProps {
   userData: UserAccount;
@@ -40,7 +40,7 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
       return;
     }
     
-    // Update user data
+    // Create transaction
     const newTransaction: Transaction = {
       id: Date.now().toString(),
       type: "withdrawal",
@@ -55,8 +55,10 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
       transactions: [...(userData.transactions || []), newTransaction]
     };
     
-    // Update in localStorage through the parent component
+    // Update user data in database
+    DatabaseService.updateUser(updatedUserData);
     setUserData(updatedUserData);
+    
     setWithdrawalAmount("");
     setShowWithdrawalForm(false);
     
@@ -88,8 +90,18 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
       return;
     }
     
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const recipient = users.find((user: UserAccount) => user.accountNumber === recipientAccount);
+    if (recipientAccount === userData.accountNumber) {
+      toast({
+        title: "Invalid recipient",
+        description: "You cannot transfer funds to yourself",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // First verify recipient exists
+    const users = DatabaseService.getUsers();
+    const recipient = users.find(user => user.accountNumber === recipientAccount);
     
     if (!recipient) {
       toast({
@@ -100,65 +112,36 @@ const AccountActions = ({ userData, setUserData }: AccountActionsProps) => {
       return;
     }
     
-    if (recipient.accountNumber === userData.accountNumber) {
+    // Perform transfer using the database service
+    const transferSuccess = DatabaseService.transferFunds(
+      userData.id,
+      recipientAccount,
+      amount,
+      `Transfer to account ${recipientAccount}`
+    );
+    
+    if (transferSuccess) {
+      // Get the updated user data
+      const updatedUser = DatabaseService.getUserById(userData.id);
+      if (updatedUser) {
+        setUserData(updatedUser);
+      }
+      
+      setTransferAmount("");
+      setRecipientAccount("");
+      setShowTransferForm(false);
+      
       toast({
-        title: "Invalid recipient",
-        description: "You cannot transfer funds to yourself",
+        title: "Transfer successful",
+        description: `$${amount.toFixed(2)} has been transferred to account ${recipientAccount}`,
+      });
+    } else {
+      toast({
+        title: "Transfer failed",
+        description: "An error occurred during the transfer. Please try again.",
         variant: "destructive",
       });
-      return;
     }
-    
-    // Update sender data
-    const senderTransaction: Transaction = {
-      id: Date.now().toString(),
-      type: "transfer",
-      amount: amount,
-      recipientAccount: recipientAccount,
-      date: new Date().toISOString().split('T')[0],
-      description: `Transfer to account ${recipientAccount}`
-    };
-    
-    const updatedUserData = {
-      ...userData,
-      balance: userData.balance - amount,
-      transactions: [...(userData.transactions || []), senderTransaction]
-    };
-    
-    // Update recipient data
-    const recipientTransaction: Transaction = {
-      id: (Date.now() + 1).toString(),
-      type: "deposit",
-      amount: amount,
-      date: new Date().toISOString().split('T')[0],
-      description: `Transfer from account ${userData.accountNumber || 'Unknown'}`
-    };
-    
-    const updatedRecipient = {
-      ...recipient,
-      balance: recipient.balance + amount,
-      transactions: [...(recipient.transactions || []), recipientTransaction]
-    };
-    
-    // Update in localStorage
-    const updatedUsers = users.map((user: UserAccount) => {
-      if (user.id === userData.id) return updatedUserData;
-      if (user.id === recipient.id) return updatedRecipient;
-      return user;
-    });
-    
-    localStorage.setItem("users", JSON.stringify(updatedUsers));
-    
-    // Update the user data in the parent component
-    setUserData(updatedUserData);
-    setTransferAmount("");
-    setRecipientAccount("");
-    setShowTransferForm(false);
-    
-    toast({
-      title: "Transfer successful",
-      description: `$${amount.toFixed(2)} has been transferred to account ${recipientAccount}`,
-    });
   };
 
   return (

@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { UserAccount } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { DatabaseService } from "@/services/databaseService";
 
 type AuthContextType = {
   user: UserAccount | null;
@@ -20,18 +21,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Load user from localStorage on initial mount
+  // Load user from database on initial mount
   useEffect(() => {
     const loadUser = () => {
-      const storedUser = localStorage.getItem("user");
+      const storedUser = DatabaseService.getCurrentUser();
       if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
-        } catch (error) {
-          console.error("Failed to parse user from localStorage:", error);
-          localStorage.removeItem("user");
-        }
+        setUser(storedUser);
       }
       setIsLoading(false);
     };
@@ -56,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         
         setUser(adminUser);
-        localStorage.setItem("user", JSON.stringify(adminUser));
+        DatabaseService.saveCurrentUser(adminUser);
         
         toast({
           title: "Login successful",
@@ -68,9 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Regular user login
-      const storedUsers = localStorage.getItem("users");
-      const users = storedUsers ? JSON.parse(storedUsers) : [];
-      
+      const users = DatabaseService.getUsers();
       const foundUser = users.find((u: UserAccount) => u.email === email && u.password === password);
       
       if (foundUser) {
@@ -78,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { password: _, ...userWithoutPassword } = foundUser;
         
         setUser(userWithoutPassword);
-        localStorage.setItem("user", JSON.stringify(userWithoutPassword));
+        DatabaseService.saveCurrentUser(userWithoutPassword);
         
         toast({
           title: "Login successful",
@@ -112,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    localStorage.removeItem("user");
+    DatabaseService.saveCurrentUser(null);
     setUser(null);
     
     toast({

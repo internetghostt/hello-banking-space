@@ -6,6 +6,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import AccountOverview from "@/components/dashboard/AccountOverview";
 import AccountActions from "@/components/dashboard/AccountActions";
 import TransactionsList from "@/components/dashboard/TransactionsList";
+import { DatabaseService } from "@/services/databaseService";
 
 const Dashboard = () => {
   const [userData, setUserData] = useState<UserAccount | null>(null);
@@ -14,68 +15,52 @@ const Dashboard = () => {
 
   useEffect(() => {
     // Check if user is logged in
-    const userString = localStorage.getItem("user");
-    if (!userString) {
+    const currentUser = DatabaseService.getCurrentUser();
+    if (!currentUser) {
       navigate("/login");
       return;
     }
-
-    const user = JSON.parse(userString);
     
-    // Get the latest user data from localStorage
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const currentUser = users.find((u: UserAccount) => u.email === user.email);
+    // Get the latest user data from database
+    const latestUserData = DatabaseService.getUserById(currentUser.id);
     
-    if (currentUser) {
+    if (latestUserData) {
       // Ensure account number exists
-      if (!currentUser.accountNumber) {
-        currentUser.accountNumber = `ACC${Math.floor(100000000 + Math.random() * 900000000)}`;
+      if (!latestUserData.accountNumber) {
+        const accountNumber = `ACC${Math.floor(100000000 + Math.random() * 900000000)}`;
+        const updatedUser = {
+          ...latestUserData,
+          accountNumber
+        };
         
-        // Update the users array
-        const updatedUsers = users.map((u: UserAccount) => 
-          u.email === currentUser.email ? currentUser : u
-        );
-        
-        localStorage.setItem("users", JSON.stringify(updatedUsers));
-        localStorage.setItem("user", JSON.stringify(currentUser));
+        DatabaseService.updateUser(updatedUser);
+        setUserData(updatedUser);
+      } else {
+        setUserData(latestUserData);
       }
-      
-      setUserData(currentUser);
     } else {
       // Create account number for new user
       const accountNumber = `ACC${Math.floor(100000000 + Math.random() * 900000000)}`;
       
       const newUserData = {
-        ...user,
+        ...currentUser,
         accountNumber,
-        balance: user.balance || 0,
-        status: user.status || 'active',
-        transactions: user.transactions || []
+        balance: currentUser.balance || 0,
+        status: currentUser.status || 'active',
+        transactions: currentUser.transactions || []
       };
       
-      // We need to add this user to the users array to persist transactions
-      const updatedUsers = [...users, newUserData];
-      localStorage.setItem("users", JSON.stringify(updatedUsers));
-      localStorage.setItem("user", JSON.stringify(newUserData));
-      
+      DatabaseService.createUser(newUserData);
       setUserData(newUserData);
     }
     
     setIsLoading(false);
   }, [navigate]);
 
-  // Function to update the user data in both state and localStorage
+  // Function to update the user data in both state and database
   const updateUserData = (updatedUser: UserAccount) => {
     setUserData(updatedUser);
-    
-    // Update in users array
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const updatedUsers = users.map((u: UserAccount) => 
-      u.id === updatedUser.id ? updatedUser : u
-    );
-    
-    localStorage.setItem("users", JSON.stringify(updatedUsers));
-    localStorage.setItem("user", JSON.stringify(updatedUser));
+    DatabaseService.updateUser(updatedUser);
   };
 
   if (isLoading) {
