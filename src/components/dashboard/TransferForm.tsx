@@ -14,9 +14,10 @@ interface TransferFormProps {
 const TransferForm = ({ userData, setUserData, onClose }: TransferFormProps) => {
   const [transferAmount, setTransferAmount] = useState("");
   const [recipientAccount, setRecipientAccount] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
-  const handleTransfer = () => {
+  const handleTransfer = async () => {
     if (!userData) return;
     
     const amount = parseFloat(transferAmount);
@@ -47,48 +48,62 @@ const TransferForm = ({ userData, setUserData, onClose }: TransferFormProps) => 
       return;
     }
     
-    // First verify recipient exists
-    const users = DatabaseService.getUsers();
-    const recipient = users.find(user => user.accountNumber === recipientAccount);
+    setIsProcessing(true);
     
-    if (!recipient) {
-      toast({
-        title: "Recipient not found",
-        description: "The account number does not exist in our system",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Perform transfer using the database service
-    const transferSuccess = DatabaseService.transferFunds(
-      userData.id,
-      recipientAccount,
-      amount,
-      `Transfer to account ${recipientAccount}`
-    );
-    
-    if (transferSuccess) {
-      // Get the updated user data
-      const updatedUser = DatabaseService.getUserById(userData.id);
-      if (updatedUser) {
-        setUserData(updatedUser);
+    try {
+      // First verify recipient exists
+      const users = await DatabaseService.getUsers();
+      const recipient = users.find(user => user.accountNumber === recipientAccount);
+      
+      if (!recipient) {
+        toast({
+          title: "Recipient not found",
+          description: "The account number does not exist in our system",
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+        return;
       }
       
-      setTransferAmount("");
-      setRecipientAccount("");
-      onClose();
+      // Perform transfer using the database service
+      const transferSuccess = await DatabaseService.transferFunds(
+        userData.id,
+        recipientAccount,
+        amount,
+        `Transfer to account ${recipientAccount}`
+      );
       
-      toast({
-        title: "Transfer successful",
-        description: `$${amount.toFixed(2)} has been transferred to account ${recipientAccount}`,
-      });
-    } else {
+      if (transferSuccess) {
+        // Get the updated user data
+        const updatedUser = await DatabaseService.getUserById(userData.id);
+        if (updatedUser) {
+          setUserData(updatedUser);
+        }
+        
+        setTransferAmount("");
+        setRecipientAccount("");
+        onClose();
+        
+        toast({
+          title: "Transfer successful",
+          description: `$${amount.toFixed(2)} has been transferred to account ${recipientAccount}`,
+        });
+      } else {
+        toast({
+          title: "Transfer failed",
+          description: "An error occurred during the transfer. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Transfer error:", error);
       toast({
         title: "Transfer failed",
         description: "An error occurred during the transfer. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -119,11 +134,11 @@ const TransferForm = ({ userData, setUserData, onClose }: TransferFormProps) => 
           />
         </div>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isProcessing}>
             Cancel
           </Button>
-          <Button onClick={handleTransfer}>
-            Transfer
+          <Button onClick={handleTransfer} disabled={isProcessing}>
+            {isProcessing ? "Processing..." : "Transfer"}
           </Button>
         </div>
       </div>

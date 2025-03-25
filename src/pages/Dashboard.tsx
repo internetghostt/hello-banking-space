@@ -14,53 +14,65 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is logged in
-    const currentUser = DatabaseService.getCurrentUser();
-    if (!currentUser) {
-      navigate("/login");
-      return;
-    }
-    
-    // Get the latest user data from database
-    const latestUserData = DatabaseService.getUserById(currentUser.id);
-    
-    if (latestUserData) {
-      // Ensure account number exists
-      if (!latestUserData.accountNumber) {
-        const accountNumber = `ACC${Math.floor(100000000 + Math.random() * 900000000)}`;
-        const updatedUser = {
-          ...latestUserData,
-          accountNumber
-        };
+    const loadUserData = async () => {
+      try {
+        // Check if user is logged in
+        const currentUser = DatabaseService.getCurrentUser();
+        if (!currentUser) {
+          navigate("/login");
+          return;
+        }
         
-        DatabaseService.updateUser(updatedUser);
-        setUserData(updatedUser);
-      } else {
-        setUserData(latestUserData);
+        // Get the latest user data from database
+        const latestUserData = await DatabaseService.getUserById(currentUser.id);
+        
+        if (latestUserData) {
+          // Ensure account number exists
+          if (!latestUserData.accountNumber) {
+            const accountNumber = `ACC${Math.floor(100000000 + Math.random() * 900000000)}`;
+            const updatedUser = {
+              ...latestUserData,
+              accountNumber
+            };
+            
+            await DatabaseService.updateUser(updatedUser);
+            setUserData(updatedUser);
+          } else {
+            setUserData(latestUserData);
+          }
+        } else {
+          // Create account number for new user
+          const accountNumber = `ACC${Math.floor(100000000 + Math.random() * 900000000)}`;
+          
+          const newUserData = {
+            ...currentUser,
+            accountNumber,
+            balance: currentUser.balance || 0,
+            status: currentUser.status || 'active',
+            transactions: currentUser.transactions || []
+          };
+          
+          await DatabaseService.createUser(newUserData);
+          setUserData(newUserData);
+        }
+      } catch (error) {
+        console.error("Error loading user data:", error);
+      } finally {
+        setIsLoading(false);
       }
-    } else {
-      // Create account number for new user
-      const accountNumber = `ACC${Math.floor(100000000 + Math.random() * 900000000)}`;
-      
-      const newUserData = {
-        ...currentUser,
-        accountNumber,
-        balance: currentUser.balance || 0,
-        status: currentUser.status || 'active',
-        transactions: currentUser.transactions || []
-      };
-      
-      DatabaseService.createUser(newUserData);
-      setUserData(newUserData);
-    }
+    };
     
-    setIsLoading(false);
+    loadUserData();
   }, [navigate]);
 
   // Function to update the user data in both state and database
-  const updateUserData = (updatedUser: UserAccount) => {
-    setUserData(updatedUser);
-    DatabaseService.updateUser(updatedUser);
+  const updateUserData = async (updatedUser: UserAccount) => {
+    try {
+      setUserData(updatedUser);
+      await DatabaseService.updateUser(updatedUser);
+    } catch (error) {
+      console.error("Error updating user data:", error);
+    }
   };
 
   if (isLoading) {

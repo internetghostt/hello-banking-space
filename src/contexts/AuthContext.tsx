@@ -63,7 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Regular user login
-      const users = DatabaseService.getUsers();
+      const users = await DatabaseService.getUsers();
       const foundUser = users.find((u: UserAccount) => u.email === email && u.password === password);
       
       if (foundUser) {

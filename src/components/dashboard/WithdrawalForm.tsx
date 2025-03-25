@@ -13,9 +13,10 @@ interface WithdrawalFormProps {
 
 const WithdrawalForm = ({ userData, setUserData, onClose }: WithdrawalFormProps) => {
   const [withdrawalAmount, setWithdrawalAmount] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
-  const handleWithdrawal = () => {
+  const handleWithdrawal = async () => {
     if (!userData) return;
     
     const amount = parseFloat(withdrawalAmount);
@@ -37,32 +38,45 @@ const WithdrawalForm = ({ userData, setUserData, onClose }: WithdrawalFormProps)
       return;
     }
     
-    // Create transaction
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
-      type: "withdrawal",
-      amount: amount,
-      date: new Date().toISOString().split('T')[0],
-      description: "Withdrawal"
-    };
+    setIsProcessing(true);
     
-    const updatedUserData = {
-      ...userData,
-      balance: userData.balance - amount,
-      transactions: [...(userData.transactions || []), newTransaction]
-    };
-    
-    // Update user data in database
-    DatabaseService.updateUser(updatedUserData);
-    setUserData(updatedUserData);
-    
-    setWithdrawalAmount("");
-    onClose();
-    
-    toast({
-      title: "Withdrawal successful",
-      description: `$${amount.toFixed(2)} has been withdrawn from your account`,
-    });
+    try {
+      // Create transaction
+      const newTransaction: Transaction = {
+        id: Date.now().toString(),
+        type: "withdrawal",
+        amount: amount,
+        date: new Date().toISOString().split('T')[0],
+        description: "Withdrawal"
+      };
+      
+      const updatedUserData = {
+        ...userData,
+        balance: userData.balance - amount,
+        transactions: [...(userData.transactions || []), newTransaction]
+      };
+      
+      // Update user data in database
+      await DatabaseService.updateUser(updatedUserData);
+      setUserData(updatedUserData);
+      
+      setWithdrawalAmount("");
+      onClose();
+      
+      toast({
+        title: "Withdrawal successful",
+        description: `$${amount.toFixed(2)} has been withdrawn from your account`,
+      });
+    } catch (error) {
+      console.error("Withdrawal error:", error);
+      toast({
+        title: "Withdrawal failed",
+        description: "An error occurred processing your withdrawal",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -82,11 +96,11 @@ const WithdrawalForm = ({ userData, setUserData, onClose }: WithdrawalFormProps)
           />
         </div>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isProcessing}>
             Cancel
           </Button>
-          <Button onClick={handleWithdrawal}>
-            Withdraw
+          <Button onClick={handleWithdrawal} disabled={isProcessing}>
+            {isProcessing ? "Processing..." : "Withdraw"}
           </Button>
         </div>
       </div>

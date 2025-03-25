@@ -2,24 +2,105 @@
 import { UserAccount, Transaction } from "@/types/user";
 
 // This service abstracts database operations
-// Currently implemented with localStorage, but can be replaced with actual DB calls
+// Uses IndexedDB with localStorage fallback
 export class DatabaseService {
+  private static DB_NAME = "bankingApp";
+  private static DB_VERSION = 1;
+  private static USERS_STORE = "users";
+  private static CURRENT_USER_KEY = "currentUser";
+
+  private static async openDatabase(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      if (!window.indexedDB) {
+        console.warn("Your browser doesn't support IndexedDB. Falling back to localStorage.");
+        reject(new Error("IndexedDB not supported"));
+        return;
+      }
+
+      const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+
+      request.onerror = (event) => {
+        console.error("Database error:", event);
+        reject(new Error("Could not open database"));
+      };
+
+      request.onsuccess = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        resolve(db);
+      };
+
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        
+        // Create object stores if they don't exist
+        if (!db.objectStoreNames.contains(this.USERS_STORE)) {
+          db.createObjectStore(this.USERS_STORE, { keyPath: "id" });
+        }
+      };
+    });
+  }
+
   // USER OPERATIONS
-  static getUsers(): UserAccount[] {
+  static async getUsers(): Promise<UserAccount[]> {
     try {
-      const users = localStorage.getItem("users");
-      return users ? JSON.parse(users) : [];
+      const db = await this.openDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(this.USERS_STORE, "readonly");
+        const store = transaction.objectStore(this.USERS_STORE);
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+          resolve(request.result);
+        };
+
+        request.onerror = (event) => {
+          console.error("Error getting users from IndexedDB:", event);
+          reject(new Error("Failed to get users"));
+        };
+      });
     } catch (error) {
-      console.error("Error getting users:", error);
-      return [];
+      console.warn("Falling back to localStorage for getUsers");
+      try {
+        const users = localStorage.getItem("users");
+        return users ? JSON.parse(users) : [];
+      } catch (localStorageError) {
+        console.error("Error getting users:", localStorageError);
+        return [];
+      }
     }
   }
 
-  static saveUsers(users: UserAccount[]): void {
+  static async saveUsers(users: UserAccount[]): Promise<void> {
     try {
-      localStorage.setItem("users", JSON.stringify(users));
+      const db = await this.openDatabase();
+      const transaction = db.transaction(this.USERS_STORE, "readwrite");
+      const store = transaction.objectStore(this.USERS_STORE);
+      
+      // Clear existing data
+      store.clear();
+      
+      // Add all users
+      users.forEach(user => {
+        store.add(user);
+      });
+      
+      return new Promise((resolve, reject) => {
+        transaction.oncomplete = () => {
+          resolve();
+        };
+        
+        transaction.onerror = (event) => {
+          console.error("Error saving users to IndexedDB:", event);
+          reject(new Error("Failed to save users"));
+        };
+      });
     } catch (error) {
-      console.error("Error saving users:", error);
+      console.warn("Falling back to localStorage for saveUsers");
+      try {
+        localStorage.setItem("users", JSON.stringify(users));
+      } catch (localStorageError) {
+        console.error("Error saving users:", localStorageError);
+      }
     }
   }
 
@@ -45,49 +126,130 @@ export class DatabaseService {
     }
   }
 
-  static getUserByEmail(email: string): UserAccount | null {
-    const users = this.getUsers();
+  static async getUserByEmail(email: string): Promise<UserAccount | null> {
+    const users = await this.getUsers();
     return users.find(user => user.email === email) || null;
   }
 
-  static getUserById(id: string): UserAccount | null {
-    const users = this.getUsers();
-    return users.find(user => user.id === id) || null;
-  }
+  static async getUserById(id: string): Promise<UserAccount | null> {
+    try {
+      const db = await this.openDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(this.USERS_STORE, "readonly");
+        const store = transaction.objectStore(this.USERS_STORE);
+        const request = store.get(id);
 
-  static createUser(user: UserAccount): UserAccount {
-    const users = this.getUsers();
-    const newUsers = [...users, user];
-    this.saveUsers(newUsers);
-    return user;
-  }
+        request.onsuccess = () => {
+          resolve(request.result || null);
+        };
 
-  static updateUser(updatedUser: UserAccount): UserAccount {
-    const users = this.getUsers();
-    const newUsers = users.map(user => 
-      user.id === updatedUser.id ? updatedUser : user
-    );
-    this.saveUsers(newUsers);
-    
-    // Also update current user if it's the same user
-    const currentUser = this.getCurrentUser();
-    if (currentUser && currentUser.id === updatedUser.id) {
-      this.saveCurrentUser(updatedUser);
+        request.onerror = (event) => {
+          console.error("Error getting user by ID from IndexedDB:", event);
+          reject(new Error("Failed to get user by ID"));
+        };
+      });
+    } catch (error) {
+      console.warn("Falling back to localStorage for getUserById");
+      const users = await this.getUsers();
+      return users.find(user => user.id === id) || null;
     }
-    
-    return updatedUser;
   }
 
-  static deleteUser(userId: string): boolean {
-    const users = this.getUsers();
-    const newUsers = users.filter(user => user.id !== userId);
-    this.saveUsers(newUsers);
-    return users.length !== newUsers.length;
+  static async createUser(user: UserAccount): Promise<UserAccount> {
+    try {
+      const db = await this.openDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(this.USERS_STORE, "readwrite");
+        const store = transaction.objectStore(this.USERS_STORE);
+        const request = store.add(user);
+
+        request.onsuccess = () => {
+          resolve(user);
+        };
+
+        request.onerror = (event) => {
+          console.error("Error creating user in IndexedDB:", event);
+          reject(new Error("Failed to create user"));
+        };
+      });
+    } catch (error) {
+      console.warn("Falling back to localStorage for createUser");
+      const users = await this.getUsers();
+      const newUsers = [...users, user];
+      await this.saveUsers(newUsers);
+      return user;
+    }
+  }
+
+  static async updateUser(updatedUser: UserAccount): Promise<UserAccount> {
+    try {
+      const db = await this.openDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(this.USERS_STORE, "readwrite");
+        const store = transaction.objectStore(this.USERS_STORE);
+        const request = store.put(updatedUser);
+
+        request.onsuccess = () => {
+          // Also update current user if it's the same user
+          const currentUser = this.getCurrentUser();
+          if (currentUser && currentUser.id === updatedUser.id) {
+            this.saveCurrentUser(updatedUser);
+          }
+          resolve(updatedUser);
+        };
+
+        request.onerror = (event) => {
+          console.error("Error updating user in IndexedDB:", event);
+          reject(new Error("Failed to update user"));
+        };
+      });
+    } catch (error) {
+      console.warn("Falling back to localStorage for updateUser");
+      const users = await this.getUsers();
+      const newUsers = users.map(user => 
+        user.id === updatedUser.id ? updatedUser : user
+      );
+      await this.saveUsers(newUsers);
+      
+      // Also update current user if it's the same user
+      const currentUser = this.getCurrentUser();
+      if (currentUser && currentUser.id === updatedUser.id) {
+        this.saveCurrentUser(updatedUser);
+      }
+      
+      return updatedUser;
+    }
+  }
+
+  static async deleteUser(userId: string): Promise<boolean> {
+    try {
+      const db = await this.openDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(this.USERS_STORE, "readwrite");
+        const store = transaction.objectStore(this.USERS_STORE);
+        const request = store.delete(userId);
+
+        request.onsuccess = () => {
+          resolve(true);
+        };
+
+        request.onerror = (event) => {
+          console.error("Error deleting user from IndexedDB:", event);
+          reject(new Error("Failed to delete user"));
+        };
+      });
+    } catch (error) {
+      console.warn("Falling back to localStorage for deleteUser");
+      const users = await this.getUsers();
+      const newUsers = users.filter(user => user.id !== userId);
+      await this.saveUsers(newUsers);
+      return users.length !== newUsers.length;
+    }
   }
 
   // TRANSACTION OPERATIONS
-  static addTransaction(userId: string, transaction: Transaction): boolean {
-    const user = this.getUserById(userId);
+  static async addTransaction(userId: string, transaction: Transaction): Promise<boolean> {
+    const user = await this.getUserById(userId);
     if (!user) return false;
 
     const updatedUser = {
@@ -98,22 +260,22 @@ export class DatabaseService {
         : user.balance - transaction.amount
     };
 
-    return !!this.updateUser(updatedUser);
+    return !!(await this.updateUser(updatedUser));
   }
 
   // This method handles transfers between accounts
-  static transferFunds(
+  static async transferFunds(
     senderId: string, 
     recipientAccountNumber: string, 
     amount: number, 
     description: string
-  ): boolean {
+  ): Promise<boolean> {
     // Get sender
-    const sender = this.getUserById(senderId);
+    const sender = await this.getUserById(senderId);
     if (!sender) return false;
     
     // Get recipient
-    const users = this.getUsers();
+    const users = await this.getUsers();
     const recipient = users.find(u => u.accountNumber === recipientAccountNumber);
     if (!recipient) return false;
     
@@ -135,35 +297,77 @@ export class DatabaseService {
       description: `Transfer from account ${sender.accountNumber || 'Unknown'}`
     };
     
-    // Update sender
-    const updatedSender = {
-      ...sender,
-      balance: sender.balance - amount,
-      transactions: [...(sender.transactions || []), senderTransaction]
-    };
-    
-    // Update recipient
-    const updatedRecipient = {
-      ...recipient,
-      balance: recipient.balance + amount,
-      transactions: [...(recipient.transactions || []), recipientTransaction]
-    };
-    
-    // Save both updates
-    const updatedUsers = users.map(user => {
-      if (user.id === sender.id) return updatedSender;
-      if (user.id === recipient.id) return updatedRecipient;
-      return user;
-    });
-    
-    this.saveUsers(updatedUsers);
-    
-    // If sender is the current user, update that too
-    const currentUser = this.getCurrentUser();
-    if (currentUser && currentUser.id === sender.id) {
-      this.saveCurrentUser(updatedSender);
+    try {
+      const db = await this.openDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(this.USERS_STORE, "readwrite");
+        const store = transaction.objectStore(this.USERS_STORE);
+        
+        // Update sender
+        const updatedSender = {
+          ...sender,
+          balance: sender.balance - amount,
+          transactions: [...(sender.transactions || []), senderTransaction]
+        };
+        
+        // Update recipient
+        const updatedRecipient = {
+          ...recipient,
+          balance: recipient.balance + amount,
+          transactions: [...(recipient.transactions || []), recipientTransaction]
+        };
+        
+        // Save both updates
+        store.put(updatedSender);
+        store.put(updatedRecipient);
+        
+        transaction.oncomplete = () => {
+          // If sender is the current user, update that too
+          const currentUser = this.getCurrentUser();
+          if (currentUser && currentUser.id === sender.id) {
+            this.saveCurrentUser(updatedSender);
+          }
+          resolve(true);
+        };
+        
+        transaction.onerror = (event) => {
+          console.error("Error transferring funds in IndexedDB:", event);
+          reject(new Error("Failed to transfer funds"));
+        };
+      });
+    } catch (error) {
+      console.warn("Falling back to localStorage for transferFunds");
+      
+      // Update sender
+      const updatedSender = {
+        ...sender,
+        balance: sender.balance - amount,
+        transactions: [...(sender.transactions || []), senderTransaction]
+      };
+      
+      // Update recipient
+      const updatedRecipient = {
+        ...recipient,
+        balance: recipient.balance + amount,
+        transactions: [...(recipient.transactions || []), recipientTransaction]
+      };
+      
+      // Save both updates
+      const updatedUsers = users.map(user => {
+        if (user.id === sender.id) return updatedSender;
+        if (user.id === recipient.id) return updatedRecipient;
+        return user;
+      });
+      
+      await this.saveUsers(updatedUsers);
+      
+      // If sender is the current user, update that too
+      const currentUser = this.getCurrentUser();
+      if (currentUser && currentUser.id === sender.id) {
+        this.saveCurrentUser(updatedSender);
+      }
+      
+      return true;
     }
-    
-    return true;
   }
 }
