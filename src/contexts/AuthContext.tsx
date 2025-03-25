@@ -22,6 +22,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Initialize default users
+  useEffect(() => {
+    const initializeDefaultUsers = async () => {
+      try {
+        await DatabaseService.initializeDefaultUsers();
+      } catch (error) {
+        console.error("Error initializing default users:", error);
+      }
+    };
+    
+    initializeDefaultUsers();
+  }, []);
+
   // Load user from database on initial mount
   useEffect(() => {
     const loadUser = async () => {

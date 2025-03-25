@@ -1,10 +1,48 @@
-
 import { UserAccount, Transaction } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
 
 // This service abstracts database operations using Supabase
 export class DatabaseService {
   private static CURRENT_USER_KEY = "currentUser";
+
+  // Initialize default users if they don't exist
+  static async initializeDefaultUsers(): Promise<void> {
+    try {
+      // Check if admin user exists
+      const adminExists = await this.getUserByEmail("admin@bank.com");
+      if (!adminExists) {
+        // Create admin user
+        await supabase.from('users').insert({
+          email: "admin@bank.com",
+          name: "Admin User",
+          password: "admin123",
+          account_number: "ADMIN-001",
+          balance: 10000,
+          status: "active",
+          role: "admin"
+        });
+        console.log("Created admin user: admin@bank.com / admin123");
+      }
+
+      // Check if regular user exists
+      const userExists = await this.getUserByEmail("user@bank.com");
+      if (!userExists) {
+        // Create regular user
+        await supabase.from('users').insert({
+          email: "user@bank.com",
+          name: "Regular User",
+          password: "user123",
+          account_number: "USER-001",
+          balance: 1000,
+          status: "active",
+          role: "user"
+        });
+        console.log("Created regular user: user@bank.com / user123");
+      }
+    } catch (error) {
+      console.error("Error initializing default users:", error);
+    }
+  }
 
   // USER OPERATIONS
   static async getUsers(): Promise<UserAccount[]> {

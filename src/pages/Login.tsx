@@ -120,9 +120,14 @@ const Login = () => {
           </Button>
           
           <div className="text-center mt-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 mb-1">
               Don't have an account? Contact an administrator.
             </p>
+            <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-md border border-gray-200">
+              <p className="font-medium mb-1">Demo Accounts:</p>
+              <p>Admin: admin@bank.com / admin123</p>
+              <p>User: user@bank.com / user123</p>
+            </div>
           </div>
         </form>
       </div>
