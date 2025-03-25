@@ -4,6 +4,7 @@ import { UserAccount } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { DatabaseService } from "@/services/databaseService";
+import { supabase } from "@/integrations/supabase/client";
 
 type AuthContextType = {
   user: UserAccount | null;
@@ -38,58 +39,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // Admin login (hardcoded for demo purposes)
-      if (email === "admin@bank.com" && password === "admin123") {
-        const adminUser: UserAccount = {
-          id: "admin",
-          email,
-          role: "admin",
-          balance: 0,
-          status: "active",
-          createdAt: new Date().toISOString().split("T")[0],
-          transactions: []
-        };
-        
-        setUser(adminUser);
-        DatabaseService.saveCurrentUser(adminUser);
-        
+      // Check if user exists in Supabase database
+      const user = await DatabaseService.getUserByEmail(email);
+      
+      if (!user) {
         toast({
-          title: "Login successful",
-          description: "Welcome to the admin dashboard",
+          title: "Login failed",
+          description: "Invalid email or password",
+          variant: "destructive",
         });
         
         setIsLoading(false);
-        return true;
+        return false;
       }
       
-      // Regular user login
-      const users = await DatabaseService.getUsers();
-      const foundUser = users.find((u: UserAccount) => u.email === email && u.password === password);
-      
-      if (foundUser) {
-        // Don't expose password in the session
-        const { password: _, ...userWithoutPassword } = foundUser;
-        
-        setUser(userWithoutPassword);
-        DatabaseService.saveCurrentUser(userWithoutPassword);
-        
+      // Simple password check (in a real app, would use proper authentication)
+      if (user.password !== password) {
         toast({
-          title: "Login successful",
-          description: "Welcome to your account",
+          title: "Login failed",
+          description: "Invalid email or password",
+          variant: "destructive",
         });
         
         setIsLoading(false);
-        return true;
+        return false;
       }
+      
+      // Don't expose password in the session
+      const { password: _, ...userWithoutPassword } = user;
+      
+      setUser(userWithoutPassword);
+      DatabaseService.saveCurrentUser(userWithoutPassword);
       
       toast({
-        title: "Login failed",
-        description: "Invalid email or password",
-        variant: "destructive",
+        title: "Login successful",
+        description: user.role === 'admin' ? "Welcome to the admin dashboard" : "Welcome to your account",
       });
       
       setIsLoading(false);
-      return false;
+      return true;
     } catch (error) {
       console.error("Login error:", error);
       

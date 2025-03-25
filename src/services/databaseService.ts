@@ -1,112 +1,71 @@
 
 import { UserAccount, Transaction } from "@/types/user";
+import { supabase } from "@/integrations/supabase/client";
 
-// This service abstracts database operations
-// Uses IndexedDB with localStorage fallback
+// This service abstracts database operations using Supabase
 export class DatabaseService {
-  private static DB_NAME = "bankingApp";
-  private static DB_VERSION = 1;
-  private static USERS_STORE = "users";
   private static CURRENT_USER_KEY = "currentUser";
-
-  private static async openDatabase(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
-      if (!window.indexedDB) {
-        console.warn("Your browser doesn't support IndexedDB. Falling back to localStorage.");
-        reject(new Error("IndexedDB not supported"));
-        return;
-      }
-
-      const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
-
-      request.onerror = (event) => {
-        console.error("Database error:", event);
-        reject(new Error("Could not open database"));
-      };
-
-      request.onsuccess = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        resolve(db);
-      };
-
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        
-        // Create object stores if they don't exist
-        if (!db.objectStoreNames.contains(this.USERS_STORE)) {
-          db.createObjectStore(this.USERS_STORE, { keyPath: "id" });
-        }
-      };
-    });
-  }
 
   // USER OPERATIONS
   static async getUsers(): Promise<UserAccount[]> {
     try {
-      const db = await this.openDatabase();
-      return new Promise((resolve, reject) => {
-        const transaction = db.transaction(this.USERS_STORE, "readonly");
-        const store = transaction.objectStore(this.USERS_STORE);
-        const request = store.getAll();
-
-        request.onsuccess = () => {
-          resolve(request.result);
-        };
-
-        request.onerror = (event) => {
-          console.error("Error getting users from IndexedDB:", event);
-          reject(new Error("Failed to get users"));
-        };
-      });
-    } catch (error) {
-      console.warn("Falling back to localStorage for getUsers");
-      try {
-        const users = localStorage.getItem("users");
-        return users ? JSON.parse(users) : [];
-      } catch (localStorageError) {
-        console.error("Error getting users:", localStorageError);
+      const { data, error } = await supabase
+        .from('users')
+        .select('*');
+      
+      if (error) {
+        console.error("Error fetching users:", error);
         return [];
       }
+      
+      return data.map(this.mapDbUserToUserAccount);
+    } catch (error) {
+      console.error("Error getting users:", error);
+      return [];
     }
   }
 
+  private static mapDbUserToUserAccount(dbUser: any): UserAccount {
+    return {
+      id: dbUser.id,
+      email: dbUser.email,
+      name: dbUser.name,
+      accountNumber: dbUser.account_number,
+      password: dbUser.password, // Note: In production, passwords should not be returned
+      balance: parseFloat(dbUser.balance) || 0,
+      status: dbUser.status as 'active' | 'frozen',
+      role: dbUser.role as 'user' | 'admin',
+      createdAt: dbUser.created_at.split('T')[0],
+      transactions: []
+    };
+  }
+
+  private static mapDbTransactionToTransaction(dbTransaction: any): Transaction {
+    return {
+      id: dbTransaction.id,
+      type: dbTransaction.type as 'deposit' | 'withdrawal' | 'transfer',
+      amount: parseFloat(dbTransaction.amount),
+      recipientAccount: dbTransaction.recipient_account,
+      date: new Date(dbTransaction.date).toISOString().split('T')[0],
+      description: dbTransaction.description
+    };
+  }
+
   static async saveUsers(users: UserAccount[]): Promise<void> {
+    // In Supabase, we update users individually
+    // This method is kept for API compatibility
     try {
-      const db = await this.openDatabase();
-      const transaction = db.transaction(this.USERS_STORE, "readwrite");
-      const store = transaction.objectStore(this.USERS_STORE);
-      
-      // Clear existing data
-      store.clear();
-      
-      // Add all users
-      users.forEach(user => {
-        store.add(user);
-      });
-      
-      return new Promise((resolve, reject) => {
-        transaction.oncomplete = () => {
-          resolve();
-        };
-        
-        transaction.onerror = (event) => {
-          console.error("Error saving users to IndexedDB:", event);
-          reject(new Error("Failed to save users"));
-        };
-      });
-    } catch (error) {
-      console.warn("Falling back to localStorage for saveUsers");
-      try {
-        localStorage.setItem("users", JSON.stringify(users));
-      } catch (localStorageError) {
-        console.error("Error saving users:", localStorageError);
+      for (const user of users) {
+        await this.updateUser(user);
       }
+    } catch (error) {
+      console.error("Error saving users:", error);
     }
   }
 
   static getCurrentUser(): UserAccount | null {
     try {
-      const user = localStorage.getItem("user");
+      const user = localStorage.getItem(this.CURRENT_USER_KEY);
       return user ? JSON.parse(user) : null;
     } catch (error) {
       console.error("Error getting current user:", error);
@@ -117,9 +76,9 @@ export class DatabaseService {
   static saveCurrentUser(user: UserAccount | null): void {
     try {
       if (user) {
-        localStorage.setItem("user", JSON.stringify(user));
+        localStorage.setItem(this.CURRENT_USER_KEY, JSON.stringify(user));
       } else {
-        localStorage.removeItem("user");
+        localStorage.removeItem(this.CURRENT_USER_KEY);
       }
     } catch (error) {
       console.error("Error saving current user:", error);
@@ -127,89 +86,128 @@ export class DatabaseService {
   }
 
   static async getUserByEmail(email: string): Promise<UserAccount | null> {
-    const users = await this.getUsers();
-    return users.find(user => user.email === email) || null;
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
+      
+      if (error || !data) {
+        console.error("Error getting user by email:", error);
+        return null;
+      }
+      
+      const user = this.mapDbUserToUserAccount(data);
+      
+      // Get transactions for this user
+      const transactions = await this.getUserTransactions(user.id);
+      user.transactions = transactions;
+      
+      return user;
+    } catch (error) {
+      console.error("Error getting user by email:", error);
+      return null;
+    }
   }
 
   static async getUserById(id: string): Promise<UserAccount | null> {
     try {
-      const db = await this.openDatabase();
-      return new Promise((resolve, reject) => {
-        const transaction = db.transaction(this.USERS_STORE, "readonly");
-        const store = transaction.objectStore(this.USERS_STORE);
-        const request = store.get(id);
-
-        request.onsuccess = () => {
-          resolve(request.result || null);
-        };
-
-        request.onerror = (event) => {
-          console.error("Error getting user by ID from IndexedDB:", event);
-          reject(new Error("Failed to get user by ID"));
-        };
-      });
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error || !data) {
+        console.error("Error getting user by ID:", error);
+        return null;
+      }
+      
+      const user = this.mapDbUserToUserAccount(data);
+      
+      // Get transactions for this user
+      const transactions = await this.getUserTransactions(id);
+      user.transactions = transactions;
+      
+      return user;
     } catch (error) {
-      console.warn("Falling back to localStorage for getUserById");
-      const users = await this.getUsers();
-      return users.find(user => user.id === id) || null;
+      console.error("Error getting user by ID:", error);
+      return null;
+    }
+  }
+
+  static async getUserTransactions(userId: string): Promise<Transaction[]> {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
+      
+      if (error) {
+        console.error("Error getting user transactions:", error);
+        return [];
+      }
+      
+      return data.map(this.mapDbTransactionToTransaction);
+    } catch (error) {
+      console.error("Error getting user transactions:", error);
+      return [];
     }
   }
 
   static async createUser(user: UserAccount): Promise<UserAccount> {
     try {
-      const db = await this.openDatabase();
-      return new Promise((resolve, reject) => {
-        const transaction = db.transaction(this.USERS_STORE, "readwrite");
-        const store = transaction.objectStore(this.USERS_STORE);
-        const request = store.add(user);
-
-        request.onsuccess = () => {
-          resolve(user);
-        };
-
-        request.onerror = (event) => {
-          console.error("Error creating user in IndexedDB:", event);
-          reject(new Error("Failed to create user"));
-        };
-      });
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          account_number: user.accountNumber,
+          password: user.password,
+          balance: user.balance,
+          status: user.status,
+          role: user.role,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error("Error creating user:", error);
+        return user;
+      }
+      
+      return this.mapDbUserToUserAccount(data);
     } catch (error) {
-      console.warn("Falling back to localStorage for createUser");
-      const users = await this.getUsers();
-      const newUsers = [...users, user];
-      await this.saveUsers(newUsers);
+      console.error("Error creating user:", error);
       return user;
     }
   }
 
   static async updateUser(updatedUser: UserAccount): Promise<UserAccount> {
     try {
-      const db = await this.openDatabase();
-      return new Promise((resolve, reject) => {
-        const transaction = db.transaction(this.USERS_STORE, "readwrite");
-        const store = transaction.objectStore(this.USERS_STORE);
-        const request = store.put(updatedUser);
-
-        request.onsuccess = () => {
-          // Also update current user if it's the same user
-          const currentUser = this.getCurrentUser();
-          if (currentUser && currentUser.id === updatedUser.id) {
-            this.saveCurrentUser(updatedUser);
-          }
-          resolve(updatedUser);
-        };
-
-        request.onerror = (event) => {
-          console.error("Error updating user in IndexedDB:", event);
-          reject(new Error("Failed to update user"));
-        };
-      });
-    } catch (error) {
-      console.warn("Falling back to localStorage for updateUser");
-      const users = await this.getUsers();
-      const newUsers = users.map(user => 
-        user.id === updatedUser.id ? updatedUser : user
-      );
-      await this.saveUsers(newUsers);
+      const { data, error } = await supabase
+        .from('users')
+        .update({
+          email: updatedUser.email,
+          name: updatedUser.name,
+          account_number: updatedUser.accountNumber,
+          password: updatedUser.password,
+          balance: updatedUser.balance,
+          status: updatedUser.status,
+          role: updatedUser.role
+        })
+        .eq('id', updatedUser.id)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error("Error updating user:", error);
+        return updatedUser;
+      }
       
       // Also update current user if it's the same user
       const currentUser = this.getCurrentUser();
@@ -217,50 +215,85 @@ export class DatabaseService {
         this.saveCurrentUser(updatedUser);
       }
       
+      return this.mapDbUserToUserAccount(data);
+    } catch (error) {
+      console.error("Error updating user:", error);
       return updatedUser;
     }
   }
 
   static async deleteUser(userId: string): Promise<boolean> {
     try {
-      const db = await this.openDatabase();
-      return new Promise((resolve, reject) => {
-        const transaction = db.transaction(this.USERS_STORE, "readwrite");
-        const store = transaction.objectStore(this.USERS_STORE);
-        const request = store.delete(userId);
-
-        request.onsuccess = () => {
-          resolve(true);
-        };
-
-        request.onerror = (event) => {
-          console.error("Error deleting user from IndexedDB:", event);
-          reject(new Error("Failed to delete user"));
-        };
-      });
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId);
+      
+      if (error) {
+        console.error("Error deleting user:", error);
+        return false;
+      }
+      
+      return true;
     } catch (error) {
-      console.warn("Falling back to localStorage for deleteUser");
-      const users = await this.getUsers();
-      const newUsers = users.filter(user => user.id !== userId);
-      await this.saveUsers(newUsers);
-      return users.length !== newUsers.length;
+      console.error("Error deleting user:", error);
+      return false;
     }
   }
 
   // TRANSACTION OPERATIONS
   static async addTransaction(userId: string, transaction: Transaction): Promise<boolean> {
-    const user = await this.getUserById(userId);
-    if (!user) return false;
-
-    const updatedUser = {
-      ...user,
-      transactions: [...(user.transactions || []), transaction],
-      balance: transaction.type === 'deposit' 
+    try {
+      // Get current user
+      const user = await this.getUserById(userId);
+      if (!user) return false;
+      
+      // Calculate new balance
+      const newBalance = transaction.type === 'deposit' 
         ? user.balance + transaction.amount
-        : user.balance - transaction.amount
-    };
-
-    return !!(await this.updateUser(updatedUser));
+        : user.balance - transaction.amount;
+      
+      // Start by inserting the transaction
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: userId,
+          type: transaction.type,
+          amount: transaction.amount,
+          recipient_account: transaction.recipientAccount,
+          date: new Date().toISOString(),
+          description: transaction.description
+        });
+      
+      if (transactionError) {
+        console.error("Error adding transaction:", transactionError);
+        return false;
+      }
+      
+      // Then update the user's balance
+      const { error: userError } = await supabase
+        .from('users')
+        .update({ balance: newBalance })
+        .eq('id', userId);
+      
+      if (userError) {
+        console.error("Error updating user balance:", userError);
+        return false;
+      }
+      
+      // Update current user if it's the same user
+      const currentUser = this.getCurrentUser();
+      if (currentUser && currentUser.id === userId) {
+        currentUser.balance = newBalance;
+        currentUser.transactions = [transaction, ...(currentUser.transactions || [])];
+        this.saveCurrentUser(currentUser);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error adding transaction:", error);
+      return false;
+    }
   }
 
   // This method handles transfers between accounts
@@ -270,104 +303,100 @@ export class DatabaseService {
     amount: number, 
     description: string
   ): Promise<boolean> {
-    // Get sender
-    const sender = await this.getUserById(senderId);
-    if (!sender) return false;
-    
-    // Get recipient
-    const users = await this.getUsers();
-    const recipient = users.find(u => u.accountNumber === recipientAccountNumber);
-    if (!recipient) return false;
-    
-    // Create transactions
-    const senderTransaction: Transaction = {
-      id: Date.now().toString(),
-      type: "transfer",
-      amount: amount,
-      recipientAccount: recipientAccountNumber,
-      date: new Date().toISOString().split('T')[0],
-      description: description || `Transfer to account ${recipientAccountNumber}`
-    };
-    
-    const recipientTransaction: Transaction = {
-      id: (Date.now() + 1).toString(),
-      type: "deposit",
-      amount: amount,
-      date: new Date().toISOString().split('T')[0],
-      description: `Transfer from account ${sender.accountNumber || 'Unknown'}`
-    };
-    
     try {
-      const db = await this.openDatabase();
-      return new Promise((resolve, reject) => {
-        const transaction = db.transaction(this.USERS_STORE, "readwrite");
-        const store = transaction.objectStore(this.USERS_STORE);
-        
-        // Update sender
-        const updatedSender = {
-          ...sender,
-          balance: sender.balance - amount,
-          transactions: [...(sender.transactions || []), senderTransaction]
-        };
-        
-        // Update recipient
-        const updatedRecipient = {
-          ...recipient,
-          balance: recipient.balance + amount,
-          transactions: [...(recipient.transactions || []), recipientTransaction]
-        };
-        
-        // Save both updates
-        store.put(updatedSender);
-        store.put(updatedRecipient);
-        
-        transaction.oncomplete = () => {
-          // If sender is the current user, update that too
-          const currentUser = this.getCurrentUser();
-          if (currentUser && currentUser.id === sender.id) {
-            this.saveCurrentUser(updatedSender);
-          }
-          resolve(true);
-        };
-        
-        transaction.onerror = (event) => {
-          console.error("Error transferring funds in IndexedDB:", event);
-          reject(new Error("Failed to transfer funds"));
-        };
-      });
-    } catch (error) {
-      console.warn("Falling back to localStorage for transferFunds");
+      // Get sender
+      const sender = await this.getUserById(senderId);
+      if (!sender) return false;
       
-      // Update sender
-      const updatedSender = {
-        ...sender,
-        balance: sender.balance - amount,
-        transactions: [...(sender.transactions || []), senderTransaction]
-      };
+      // Get recipient
+      const { data: recipientData, error: recipientError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('account_number', recipientAccountNumber)
+        .single();
       
-      // Update recipient
-      const updatedRecipient = {
-        ...recipient,
-        balance: recipient.balance + amount,
-        transactions: [...(recipient.transactions || []), recipientTransaction]
-      };
+      if (recipientError || !recipientData) {
+        console.error("Error finding recipient:", recipientError);
+        return false;
+      }
       
-      // Save both updates
-      const updatedUsers = users.map(user => {
-        if (user.id === sender.id) return updatedSender;
-        if (user.id === recipient.id) return updatedRecipient;
-        return user;
-      });
+      const recipient = this.mapDbUserToUserAccount(recipientData);
       
-      await this.saveUsers(updatedUsers);
+      // Create sender transaction
+      const { error: senderTransactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: senderId,
+          type: 'transfer',
+          amount: amount,
+          recipient_account: recipientAccountNumber,
+          date: new Date().toISOString(),
+          description: description || `Transfer to account ${recipientAccountNumber}`
+        });
       
-      // If sender is the current user, update that too
+      if (senderTransactionError) {
+        console.error("Error creating sender transaction:", senderTransactionError);
+        return false;
+      }
+      
+      // Create recipient transaction
+      const { error: recipientTransactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: recipient.id,
+          type: 'deposit',
+          amount: amount,
+          date: new Date().toISOString(),
+          description: `Transfer from account ${sender.accountNumber || 'Unknown'}`
+        });
+      
+      if (recipientTransactionError) {
+        console.error("Error creating recipient transaction:", recipientTransactionError);
+        return false;
+      }
+      
+      // Update sender balance
+      const { error: senderBalanceError } = await supabase
+        .from('users')
+        .update({ balance: sender.balance - amount })
+        .eq('id', senderId);
+      
+      if (senderBalanceError) {
+        console.error("Error updating sender balance:", senderBalanceError);
+        return false;
+      }
+      
+      // Update recipient balance
+      const { error: recipientBalanceError } = await supabase
+        .from('users')
+        .update({ balance: recipient.balance + amount })
+        .eq('id', recipient.id);
+      
+      if (recipientBalanceError) {
+        console.error("Error updating recipient balance:", recipientBalanceError);
+        return false;
+      }
+      
+      // Update current user if it's the sender
       const currentUser = this.getCurrentUser();
-      if (currentUser && currentUser.id === sender.id) {
-        this.saveCurrentUser(updatedSender);
+      if (currentUser && currentUser.id === senderId) {
+        currentUser.balance -= amount;
+        const senderTransaction: Transaction = {
+          id: Date.now().toString(),
+          type: 'transfer',
+          amount: amount,
+          recipientAccount: recipientAccountNumber,
+          date: new Date().toISOString().split('T')[0],
+          description: description || `Transfer to account ${recipientAccountNumber}`
+        };
+        currentUser.transactions = [senderTransaction, ...(currentUser.transactions || [])];
+        this.saveCurrentUser(currentUser);
       }
       
       return true;
+    } catch (error) {
+      console.error("Error transferring funds:", error);
+      return false;
     }
   }
 }
