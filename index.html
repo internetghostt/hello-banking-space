@@ -1,12 +1,32 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>hello-banking-space</title>
-    <meta name="description" content="Lovable Generated Project" />
+    <title>NeoBank - Modern Banking Solution</title>
+    <meta name="description" content="NeoBank - A modern banking solution for the digital age" />
     <meta name="author" content="Lovable" />
     <meta property="og:image" content="/og-image.png" />
+    <!-- Handle 404s better on GitHub Pages by redirecting to index.html -->
+    <script>
+      // Single Page Apps for GitHub Pages
+      // https://github.com/rafgraph/spa-github-pages
+      (function() {
+        // Only run this script on GitHub Pages
+        if (window.location.hostname.includes('github.io')) {
+          // If no path or a non-root path that doesn't include a file extension
+          var path = window.location.pathname;
+          var isDirectoryPath = path.endsWith('/') || path.indexOf('.') === -1;
+          
+          if (path !== '/' && isDirectoryPath) {
+            // Redirect to index.html to let the SPA router handle it
+            sessionStorage.setItem('redirect-path', path);
+            window.location.href = window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/') + '/index.html';
+          }
+        }
+      })();
+    </script>
   </head>
 
   <body>
