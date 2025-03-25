@@ -24,12 +24,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load user from database on initial mount
   useEffect(() => {
-    const loadUser = () => {
-      const storedUser = DatabaseService.getCurrentUser();
-      if (storedUser) {
-        setUser(storedUser);
+    const loadUser = async () => {
+      try {
+        const storedUser = DatabaseService.getCurrentUser();
+        if (storedUser) {
+          // Verify the user exists in Supabase
+          const userData = await DatabaseService.getUserById(storedUser.id);
+          if (userData) {
+            setUser(userData);
+          } else {
+            // User doesn't exist or session expired
+            DatabaseService.saveCurrentUser(null);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading user:", error);
+        // Clear potentially corrupted user data
+        DatabaseService.saveCurrentUser(null);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     loadUser();
