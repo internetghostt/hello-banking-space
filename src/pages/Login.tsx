@@ -15,6 +15,7 @@ const Login = () => {
   useEffect(() => {
     // If user is already authenticated, redirect to the appropriate dashboard
     if (isAuthenticated && !isLoading) {
+      console.log("User already authenticated, redirecting", user);
       if (user?.role === "admin") {
         navigate("/admin");
       } else {
@@ -30,9 +31,11 @@ const Login = () => {
       return; // Form validation will handle this
     }
     
+    console.log("Submitting login form with:", email);
     const success = await login(email, password);
     
     if (success) {
+      console.log("Login successful, redirecting based on role");
       // Redirect happens in the useEffect above
       if (user?.role === "admin") {
         navigate("/admin");
@@ -44,6 +47,17 @@ const Login = () => {
 
   const toggleShowPassword = () => {
     setShowPassword(!showPassword);
+  };
+
+  // For demo purposes, let's pre-fill the login form with admin credentials
+  const fillAdminCredentials = () => {
+    setEmail("admin@bank.com");
+    setPassword("admin123");
+  };
+
+  const fillUserCredentials = () => {
+    setEmail("user@bank.com");
+    setPassword("user123");
   };
 
   return (
@@ -125,7 +139,23 @@ const Login = () => {
             </p>
             <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-md border border-gray-200">
               <p className="font-medium mb-1">Demo Accounts:</p>
-              <p>Admin: admin@bank.com / admin123</p>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={fillAdminCredentials}
+                  className="px-3 py-1 text-xs bg-blue-100 hover:bg-blue-200 rounded transition-colors"
+                >
+                  Fill Admin
+                </button>
+                <button
+                  type="button"
+                  onClick={fillUserCredentials}
+                  className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 rounded transition-colors"
+                >
+                  Fill User
+                </button>
+              </div>
+              <p className="mt-2">Admin: admin@bank.com / admin123</p>
               <p>User: user@bank.com / user123</p>
             </div>
           </div>
