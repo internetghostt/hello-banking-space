@@ -12,16 +12,17 @@ interface TransferFormProps {
 }
 
 const TransferForm = ({ userData, setUserData, onClose }: TransferFormProps) => {
-  const [transferAmount, setTransferAmount] = useState("");
-  const [recipientAccount, setRecipientAccount] = useState("");
+  const [recipient, setRecipient] = useState("");
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
   const handleTransfer = async () => {
     if (!userData) return;
     
-    const amount = parseFloat(transferAmount);
-    if (isNaN(amount) || amount <= 0) {
+    const transferAmount = parseFloat(amount);
+    if (isNaN(transferAmount) || transferAmount <= 0) {
       toast({
         title: "Invalid amount",
         description: "Please enter a valid amount greater than zero",
@@ -30,7 +31,25 @@ const TransferForm = ({ userData, setUserData, onClose }: TransferFormProps) => 
       return;
     }
     
-    if (amount > userData.balance) {
+    if (!recipient.trim()) {
+      toast({
+        title: "Missing recipient",
+        description: "Please enter a recipient account number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (recipient === userData.accountNumber) {
+      toast({
+        title: "Invalid recipient",
+        description: "You cannot transfer to your own account",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (transferAmount > userData.balance) {
       toast({
         title: "Insufficient funds",
         description: "You don't have enough balance for this transfer",
@@ -39,67 +58,52 @@ const TransferForm = ({ userData, setUserData, onClose }: TransferFormProps) => 
       return;
     }
     
-    if (recipientAccount === userData.accountNumber) {
-      toast({
-        title: "Invalid recipient",
-        description: "You cannot transfer funds to yourself",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     setIsProcessing(true);
     
     try {
-      // First verify recipient exists
-      const users = await DatabaseService.getUsers();
-      const recipient = users.find(user => user.accountNumber === recipientAccount);
-      
-      if (!recipient) {
-        toast({
-          title: "Recipient not found",
-          description: "The account number does not exist in our system",
-          variant: "destructive",
-        });
-        setIsProcessing(false);
-        return;
-      }
-      
-      // Perform transfer using the database service
-      const transferSuccess = await DatabaseService.transferFunds(
+      // Process transfer in database
+      const success = await DatabaseService.transferFunds(
         userData.id,
-        recipientAccount,
-        amount,
-        `Transfer to account ${recipientAccount}`
+        recipient,
+        transferAmount,
+        description || `Transfer to account ${recipient}`
       );
       
-      if (transferSuccess) {
+      if (success) {
         // Get the updated user data
-        const updatedUser = await DatabaseService.getUserById(userData.id);
-        if (updatedUser) {
-          setUserData(updatedUser);
+        const updatedUserData = await DatabaseService.getUserById(userData.id);
+        
+        if (updatedUserData) {
+          setUserData(updatedUserData);
+          
+          setRecipient("");
+          setAmount("");
+          setDescription("");
+          onClose();
+          
+          toast({
+            title: "Transfer successful",
+            description: `$${transferAmount.toFixed(2)} has been transferred to account ${recipient}`,
+          });
+        } else {
+          throw new Error("Failed to get updated user data");
         }
-        
-        setTransferAmount("");
-        setRecipientAccount("");
-        onClose();
-        
-        toast({
-          title: "Transfer successful",
-          description: `$${amount.toFixed(2)} has been transferred to account ${recipientAccount}`,
-        });
       } else {
-        toast({
-          title: "Transfer failed",
-          description: "An error occurred during the transfer. Please try again.",
-          variant: "destructive",
-        });
+        throw new Error("Failed to process transfer");
       }
     } catch (error) {
       console.error("Transfer error:", error);
+      let errorMessage = "An error occurred processing your transfer";
+      
+      // Check if it's an account not found error
+      if ((error as any)?.message?.includes("recipient") || 
+          (error as any)?.message?.includes("account not found")) {
+        errorMessage = "Recipient account not found";
+      }
+      
       toast({
         title: "Transfer failed",
-        description: "An error occurred during the transfer. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -115,22 +119,32 @@ const TransferForm = ({ userData, setUserData, onClose }: TransferFormProps) => 
           <label className="block text-sm font-medium text-gray-700 mb-1">Recipient Account Number</label>
           <input
             type="text"
-            value={recipientAccount}
-            onChange={(e) => setRecipientAccount(e.target.value)}
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            placeholder="e.g., ACC12345678"
+            placeholder="Account number"
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($)</label>
           <input
             type="number"
-            value={transferAmount}
-            onChange={(e) => setTransferAmount(e.target.value)}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md"
             placeholder="0.00"
             min="0.01"
             step="0.01"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            placeholder="Transfer description"
           />
         </div>
         <div className="flex justify-end gap-2">

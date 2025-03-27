@@ -40,9 +40,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const storedUser = DatabaseService.getCurrentUser();
         if (storedUser) {
-          // We'll directly set the user from the stored data for now
-          console.log("Setting user from stored data:", storedUser);
-          setUser(storedUser);
+          // Fetch latest user data from the database
+          const latestUserData = await DatabaseService.getUserById(storedUser.id);
+          if (latestUserData) {
+            console.log("Setting user from database:", latestUserData);
+            setUser(latestUserData);
+          } else {
+            console.log("Setting user from stored data:", storedUser);
+            setUser(storedUser);
+          }
         }
       } catch (error) {
         console.error("Error loading user:", error);
@@ -58,56 +64,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log("Attempting login with:", email);
     
     try {
-      // For the demo app, use hardcoded credentials for admin and regular user
-      if (email === "admin@bank.com" && password === "admin123") {
-        console.log("Admin login successful");
+      // Check for user in database
+      const user = await DatabaseService.getUserByEmail(email);
+      
+      if (user && user.password === password) {
+        console.log("Login successful for:", email);
         
-        const adminUser: UserAccount = {
-          id: "admin-id",
-          email: "admin@bank.com",
-          name: "Admin User",
-          accountNumber: "ADMIN-001",
-          balance: 10000,
-          status: 'active',
-          role: 'admin',
-          createdAt: new Date().toISOString().split('T')[0]
-        };
-        
-        setUser(adminUser);
-        DatabaseService.saveCurrentUser(adminUser);
+        setUser(user);
+        DatabaseService.saveCurrentUser(user);
         
         toast({
           title: "Login successful",
-          description: "Welcome to the admin dashboard",
+          description: user.role === 'admin' ? "Welcome to the admin dashboard" : "Welcome to your account",
         });
         
         return true;
       } 
-      
-      if (email === "user@bank.com" && password === "user123") {
-        console.log("Regular user login successful");
-        
-        const regularUser: UserAccount = {
-          id: "user-id",
-          email: "user@bank.com",
-          name: "Regular User",
-          accountNumber: "USER-001",
-          balance: 1000,
-          status: 'active',
-          role: 'user',
-          createdAt: new Date().toISOString().split('T')[0]
-        };
-        
-        setUser(regularUser);
-        DatabaseService.saveCurrentUser(regularUser);
-        
-        toast({
-          title: "Login successful",
-          description: "Welcome to your account",
-        });
-        
-        return true;
-      }
       
       // If we reach here, the credentials are invalid
       console.log("Invalid credentials for:", email);

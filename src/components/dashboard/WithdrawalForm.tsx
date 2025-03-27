@@ -50,23 +50,29 @@ const WithdrawalForm = ({ userData, setUserData, onClose }: WithdrawalFormProps)
         description: "Withdrawal"
       };
       
-      const updatedUserData = {
-        ...userData,
-        balance: userData.balance - amount,
-        transactions: [...(userData.transactions || []), newTransaction]
-      };
+      // Add transaction to database
+      const success = await DatabaseService.addTransaction(userData.id, newTransaction);
       
-      // Update user data in database
-      await DatabaseService.updateUser(updatedUserData);
-      setUserData(updatedUserData);
-      
-      setWithdrawalAmount("");
-      onClose();
-      
-      toast({
-        title: "Withdrawal successful",
-        description: `$${amount.toFixed(2)} has been withdrawn from your account`,
-      });
+      if (success) {
+        // Get the updated user data
+        const updatedUserData = await DatabaseService.getUserById(userData.id);
+        
+        if (updatedUserData) {
+          setUserData(updatedUserData);
+          
+          setWithdrawalAmount("");
+          onClose();
+          
+          toast({
+            title: "Withdrawal successful",
+            description: `$${amount.toFixed(2)} has been withdrawn from your account`,
+          });
+        } else {
+          throw new Error("Failed to get updated user data");
+        }
+      } else {
+        throw new Error("Failed to process withdrawal");
+      }
     } catch (error) {
       console.error("Withdrawal error:", error);
       toast({

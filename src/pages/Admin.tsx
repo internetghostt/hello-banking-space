@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -9,37 +10,7 @@ import EditUserForm from "@/components/admin/EditUserForm";
 import UserTable from "@/components/admin/UserTable";
 import { UserAccount, Transaction } from "@/types/user";
 import { useAuth } from "@/contexts/AuthContext";
-
-// Mock user data without passwords for initial display
-const mockUsers: UserAccount[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "johndoe@example.com",
-    balance: 5240.50,
-    status: 'active',
-    role: 'user',
-    createdAt: "2023-01-15"
-  },
-  {
-    id: "2",
-    name: "Jane Doe",
-    email: "janedoe@example.com",
-    balance: 12750.75,
-    status: 'active',
-    role: 'user',
-    createdAt: "2023-02-20"
-  },
-  {
-    id: "3",
-    name: "Mike Smith",
-    email: "mike@example.com",
-    balance: 840.25,
-    status: 'frozen',
-    role: 'user',
-    createdAt: "2023-03-10"
-  }
-];
+import { DatabaseService } from "@/services/databaseService";
 
 const Admin = () => {
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -67,64 +38,67 @@ const Admin = () => {
       return;
     }
     
-    // Check if users exist in localStorage
-    const storedUsers = localStorage.getItem("users");
-    if (storedUsers) {
-      // Use stored users
-      console.log("Loading users from localStorage");
-      const parsedUsers = JSON.parse(storedUsers);
-      setUsers(parsedUsers);
-    } else {
-      // Initialize with mock users and store in localStorage
-      console.log("Initializing users with mock data");
-      const usersWithPasswords = mockUsers.map(user => ({
-        ...user,
-        password: `default${user.id}` // Set a default password for mock users
-      }));
-      localStorage.setItem("users", JSON.stringify(usersWithPasswords));
-      setUsers(usersWithPasswords);
-    }
+    const fetchUsers = async () => {
+      try {
+        console.log("Fetching users from database");
+        const dbUsers = await DatabaseService.getUsers();
+        if (dbUsers && dbUsers.length > 0) {
+          console.log("Users fetched successfully:", dbUsers.length);
+          setUsers(dbUsers);
+        } else {
+          console.log("No users found in database");
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load users from database",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    setIsLoading(false);
+    fetchUsers();
   }, [navigate, toast, user]);
 
   const handleLogout = () => {
     logout();
   };
 
-  const handleToggleAccountStatus = (userId: string) => {
-    const updatedUsers = users.map(user => {
-      if (user.id === userId) {
-        const newStatus: 'active' | 'frozen' = user.status === 'active' ? 'frozen' : 'active';
-        
-        toast({
-          title: `Account ${newStatus}`,
-          description: `${user.email}'s account has been ${newStatus}`,
-        });
-        
-        // If this user is logged in, update their status in localStorage
-        const loggedInUser = localStorage.getItem("user");
-        if (loggedInUser) {
-          const parsedUser = JSON.parse(loggedInUser);
-          if (parsedUser.id === userId) {
-            const updatedLoggedInUser = {...parsedUser, status: newStatus};
-            localStorage.setItem("user", JSON.stringify(updatedLoggedInUser));
-          }
-        }
-        
-        return {
-          ...user,
-          status: newStatus
-        };
-      }
-      return user;
-    });
-    
-    setUsers(updatedUsers);
-    localStorage.setItem("users", JSON.stringify(updatedUsers));
+  const handleToggleAccountStatus = async (userId: string) => {
+    try {
+      const userToUpdate = users.find(user => user.id === userId);
+      if (!userToUpdate) return;
+      
+      const newStatus: 'active' | 'frozen' = userToUpdate.status === 'active' ? 'frozen' : 'active';
+      
+      const updatedUser = { ...userToUpdate, status: newStatus };
+      await DatabaseService.updateUser(updatedUser);
+      
+      // Update the UI
+      const updatedUsers = users.map(user => 
+        user.id === userId ? { ...user, status: newStatus } : user
+      );
+      
+      setUsers(updatedUsers);
+      
+      toast({
+        title: `Account ${newStatus}`,
+        description: `${userToUpdate.email}'s account has been ${newStatus}`,
+      });
+    } catch (error) {
+      console.error("Error toggling account status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update account status",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleAddBalance = (userId: string, amount: string) => {
+  const handleAddBalance = async (userId: string, amount: string) => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast({
         title: "Invalid amount",
@@ -134,164 +108,182 @@ const Admin = () => {
       return;
     }
 
-    const amountValue = Number(amount);
-    
-    const updatedUsers = users.map(user => {
-      if (user.id === userId) {
-        const newBalance = user.balance + amountValue;
+    try {
+      const amountValue = Number(amount);
+      const userToUpdate = users.find(user => user.id === userId);
+      if (!userToUpdate) return;
+      
+      // Add a transaction record
+      const newTransaction: Transaction = {
+        id: Date.now().toString(),
+        type: 'deposit',
+        amount: amountValue,
+        date: new Date().toISOString().split('T')[0],
+        description: 'Deposit by admin'
+      };
+      
+      // Add transaction to database
+      const success = await DatabaseService.addTransaction(userId, newTransaction);
+      
+      if (success) {
+        // Get the updated user data
+        const updatedUser = await DatabaseService.getUserById(userId);
         
-        toast({
-          title: "Balance added",
-          description: `$${amountValue.toFixed(2)} has been added to ${user.email}'s account`,
-        });
-        
-        // Add a transaction record
-        const newTransaction: Transaction = {
-          id: Date.now().toString(),
-          type: 'deposit',
-          amount: amountValue,
-          date: new Date().toISOString().split('T')[0],
-          description: 'Deposit by admin'
-        };
-        
-        // If this user is logged in, update their balance in localStorage
-        const loggedInUser = localStorage.getItem("user");
-        if (loggedInUser) {
-          const parsedUser = JSON.parse(loggedInUser);
-          if (parsedUser.id === userId) {
-            const updatedLoggedInUser = {
-              ...parsedUser, 
-              balance: newBalance,
-              transactions: [...(parsedUser.transactions || []), newTransaction]
-            };
-            localStorage.setItem("user", JSON.stringify(updatedLoggedInUser));
-          }
+        if (updatedUser) {
+          // Update the UI
+          const updatedUsers = users.map(user => 
+            user.id === userId ? updatedUser : user
+          );
+          
+          setUsers(updatedUsers);
+          
+          toast({
+            title: "Balance added",
+            description: `$${amountValue.toFixed(2)} has been added to ${userToUpdate.email}'s account`,
+          });
         }
-        
-        return {
-          ...user,
-          balance: newBalance,
-          transactions: [...(user.transactions || []), newTransaction]
-        };
+      } else {
+        throw new Error("Failed to add transaction");
       }
-      return user;
-    });
-    
-    setUsers(updatedUsers);
-    localStorage.setItem("users", JSON.stringify(updatedUsers));
-  };
-
-  const handleCreateUser = (name: string, email: string, password: string) => {
-    // Check if user already exists
-    if (users.some(user => user.email === email)) {
+    } catch (error) {
+      console.error("Error adding balance:", error);
       toast({
-        title: "User already exists",
-        description: "A user with this email already exists",
+        title: "Error",
+        description: "Failed to add balance",
         variant: "destructive",
       });
-      return;
     }
-
-    const newId = (Math.max(...users.map(u => Number(u.id))) + 1).toString();
-    
-    const newAccount: UserAccount = {
-      id: newId,
-      name: name,
-      email: email,
-      password: password,
-      balance: 0,
-      status: 'active',
-      role: 'user',
-      createdAt: new Date().toISOString().split('T')[0],
-      transactions: []
-    };
-    
-    const updatedUsers = [...users, newAccount];
-    setUsers(updatedUsers);
-    localStorage.setItem("users", JSON.stringify(updatedUsers));
-    
-    toast({
-      title: "Account created",
-      description: `New account for ${name} (${email}) has been created successfully`,
-    });
-    
-    setShowCreateForm(false);
   };
 
-  const handleEditUser = (userId: string, name: string, email: string, password: string) => {
-    // Check if email already exists but not from the same user
-    if (users.some(user => user.email === email && user.id !== userId)) {
+  const handleCreateUser = async (name: string, email: string, password: string) => {
+    try {
+      // Check if user already exists
+      const existingUser = await DatabaseService.getUserByEmail(email);
+      if (existingUser) {
+        toast({
+          title: "User already exists",
+          description: "A user with this email already exists",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const accountNumber = `ACC${Math.floor(100000000 + Math.random() * 900000000)}`;
+      
+      const newAccount: UserAccount = {
+        id: Date.now().toString(),
+        name: name,
+        email: email,
+        password: password,
+        accountNumber: accountNumber,
+        balance: 0,
+        status: 'active',
+        role: 'user',
+        createdAt: new Date().toISOString().split('T')[0],
+        transactions: []
+      };
+      
+      // Create user in database
+      const createdUser = await DatabaseService.createUser(newAccount);
+      
+      // Update the UI
+      setUsers([...users, createdUser]);
+      
       toast({
-        title: "Email already exists",
-        description: "Another user with this email already exists",
+        title: "Account created",
+        description: `New account for ${name} (${email}) has been created successfully`,
+      });
+      
+      setShowCreateForm(false);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create user",
         variant: "destructive",
       });
-      return;
     }
-
-    const updatedUsers = users.map(user => {
-      if (user.id === userId) {
-        const updatedUser = {
-          ...user,
-          name: name,
-          email: email,
-        };
-        
-        // Only update password if a new one was provided
-        if (password) {
-          updatedUser.password = password;
-        }
-        
-        // If this user is logged in, update their email in localStorage
-        const loggedInUser = localStorage.getItem("user");
-        if (loggedInUser) {
-          const parsedUser = JSON.parse(loggedInUser);
-          if (parsedUser.id === userId) {
-            const updatedLoggedInUser = {...parsedUser, name: name, email: email};
-            if (password) {
-              updatedLoggedInUser.password = password;
-            }
-            localStorage.setItem("user", JSON.stringify(updatedLoggedInUser));
-          }
-        }
-        
-        toast({
-          title: "Account updated",
-          description: `${user.name || user.email}'s account has been updated successfully`,
-        });
-        
-        return updatedUser;
-      }
-      return user;
-    });
-    
-    setUsers(updatedUsers);
-    localStorage.setItem("users", JSON.stringify(updatedUsers));
-    setShowEditForm(null);
   };
 
-  const handleDeleteUser = (userId: string) => {
-    const userToDelete = users.find(user => user.id === userId);
-    if (!userToDelete) return;
-    
-    const updatedUsers = users.filter(user => user.id !== userId);
-    setUsers(updatedUsers);
-    localStorage.setItem("users", JSON.stringify(updatedUsers));
-    
-    // Check if the deleted user is currently logged in
-    const loggedInUser = localStorage.getItem("user");
-    if (loggedInUser) {
-      const parsedUser = JSON.parse(loggedInUser);
-      if (parsedUser.id === userId) {
-        // Remove the user from localStorage
-        localStorage.removeItem("user");
+  const handleEditUser = async (userId: string, name: string, email: string, password: string) => {
+    try {
+      // Check if email already exists but not from the same user
+      if (email) {
+        const existingUser = await DatabaseService.getUserByEmail(email);
+        if (existingUser && existingUser.id !== userId) {
+          toast({
+            title: "Email already exists",
+            description: "Another user with this email already exists",
+            variant: "destructive",
+          });
+          return;
+        }
       }
+      
+      const userToUpdate = users.find(user => user.id === userId);
+      if (!userToUpdate) return;
+      
+      const updatedUser = {
+        ...userToUpdate,
+        name: name,
+        email: email,
+        ...(password ? { password } : {})
+      };
+      
+      // Update user in database
+      await DatabaseService.updateUser(updatedUser);
+      
+      // Update the UI
+      const updatedUsers = users.map(user => 
+        user.id === userId ? updatedUser : user
+      );
+      
+      setUsers(updatedUsers);
+      
+      toast({
+        title: "Account updated",
+        description: `${userToUpdate.name || userToUpdate.email}'s account has been updated successfully`,
+      });
+      
+      setShowEditForm(null);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update user",
+        variant: "destructive",
+      });
     }
-    
-    toast({
-      title: "Account deleted",
-      description: `${userToDelete.email}'s account has been deleted successfully`,
-    });
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      const userToDelete = users.find(user => user.id === userId);
+      if (!userToDelete) return;
+      
+      // Delete user from database
+      const success = await DatabaseService.deleteUser(userId);
+      
+      if (success) {
+        // Update the UI
+        const updatedUsers = users.filter(user => user.id !== userId);
+        setUsers(updatedUsers);
+        
+        toast({
+          title: "Account deleted",
+          description: `${userToDelete.email}'s account has been deleted successfully`,
+        });
+      } else {
+        throw new Error("Failed to delete user");
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete user",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
@@ -317,7 +309,6 @@ const Admin = () => {
           </Button>
         </div>
         
-        {/* Create user form */}
         {showCreateForm && (
           <CreateUserForm 
             onCreateUser={handleCreateUser}
@@ -325,7 +316,6 @@ const Admin = () => {
           />
         )}
         
-        {/* Edit user form */}
         {showEditForm && (
           <EditUserForm 
             userId={showEditForm}
@@ -335,7 +325,6 @@ const Admin = () => {
           />
         )}
         
-        {/* User accounts table */}
         <UserTable 
           users={users}
           onToggleStatus={handleToggleAccountStatus}

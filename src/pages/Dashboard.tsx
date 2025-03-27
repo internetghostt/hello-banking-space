@@ -7,24 +7,25 @@ import AccountOverview from "@/components/dashboard/AccountOverview";
 import AccountActions from "@/components/dashboard/AccountActions";
 import TransactionsList from "@/components/dashboard/TransactionsList";
 import { DatabaseService } from "@/services/databaseService";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Dashboard = () => {
   const [userData, setUserData] = useState<UserAccount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     const loadUserData = async () => {
       try {
         // Check if user is logged in
-        const currentUser = DatabaseService.getCurrentUser();
-        if (!currentUser) {
+        if (!user) {
           navigate("/login");
           return;
         }
         
         // Get the latest user data from database
-        const latestUserData = await DatabaseService.getUserById(currentUser.id);
+        const latestUserData = await DatabaseService.getUserById(user.id);
         
         if (latestUserData) {
           // Ensure account number exists
@@ -41,19 +42,10 @@ const Dashboard = () => {
             setUserData(latestUserData);
           }
         } else {
-          // Create account number for new user
-          const accountNumber = `ACC${Math.floor(100000000 + Math.random() * 900000000)}`;
-          
-          const newUserData = {
-            ...currentUser,
-            accountNumber,
-            balance: currentUser.balance || 0,
-            status: currentUser.status || 'active',
-            transactions: currentUser.transactions || []
-          };
-          
-          await DatabaseService.createUser(newUserData);
-          setUserData(newUserData);
+          // Something is wrong, redirect to login
+          console.error("User data not found in database");
+          navigate("/login");
+          return;
         }
       } catch (error) {
         console.error("Error loading user data:", error);
@@ -63,17 +55,7 @@ const Dashboard = () => {
     };
     
     loadUserData();
-  }, [navigate]);
-
-  // Function to update the user data in both state and database
-  const updateUserData = async (updatedUser: UserAccount) => {
-    try {
-      setUserData(updatedUser);
-      await DatabaseService.updateUser(updatedUser);
-    } catch (error) {
-      console.error("Error updating user data:", error);
-    }
-  };
+  }, [navigate, user]);
 
   if (isLoading) {
     return (
@@ -103,7 +85,7 @@ const Dashboard = () => {
             )}
             
             <AccountOverview userData={userData} />
-            <AccountActions userData={userData} setUserData={updateUserData} />
+            <AccountActions userData={userData} setUserData={setUserData} />
             <TransactionsList transactions={userData.transactions} />
           </main>
         </>
