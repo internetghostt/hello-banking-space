@@ -12,13 +12,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children, 
   allowedRoles = ["admin", "user"] 
 }) => {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isAuthenticated) {
       navigate("/login");
-    } else if (!isLoading && isAuthenticated && user) {
+    } else if (isAuthenticated && user) {
       // Check if user has the required role
       if (!allowedRoles.includes(user.role)) {
         // Redirect based on role
@@ -29,15 +29,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         }
       }
     }
-  }, [isLoading, isAuthenticated, user, navigate, allowedRoles]);
+  }, [isAuthenticated, user, navigate, allowedRoles]);
 
-  // Show loading state or nothing while checking authentication
-  if (isLoading || !isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg">Loading...</p>
-      </div>
-    );
+  // If not authenticated, render nothing
+  if (!isAuthenticated) {
+    return null;
   }
 
   // If user is authenticated and has the right role, render children

@@ -9,12 +9,12 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isAuthenticated, isLoading, user } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     // If user is already authenticated, redirect to the appropriate dashboard
-    if (isAuthenticated && !isLoading) {
+    if (isAuthenticated) {
       console.log("User already authenticated, redirecting", user);
       if (user?.role === "admin") {
         navigate("/admin");
@@ -22,7 +22,7 @@ const Login = () => {
         navigate("/dashboard");
       }
     }
-  }, [isAuthenticated, isLoading, navigate, user]);
+  }, [isAuthenticated, navigate, user]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +36,7 @@ const Login = () => {
     
     if (success) {
       console.log("Login successful, redirecting based on role");
-      // Redirect happens in the useEffect above
+      // Redirect based on user role
       if (user?.role === "admin") {
         navigate("/admin");
       } else {
@@ -83,7 +83,6 @@ const Login = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="youremail@example.com"
               required
-              disabled={isLoading}
             />
           </div>
           
@@ -98,7 +97,6 @@ const Login = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary pr-10"
                 placeholder="••••••••"
                 required
-                disabled={isLoading}
               />
               <button
                 type="button"
@@ -129,8 +127,8 @@ const Login = () => {
             </a>
           </div>
           
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Logging in..." : "Log in"}
+          <Button type="submit" className="w-full">
+            Log in
           </Button>
           
           <div className="text-center mt-4">

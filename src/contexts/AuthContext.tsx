@@ -10,7 +10,6 @@ type AuthContextType = {
   user: UserAccount | null;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  isLoading: boolean;
   isAuthenticated: boolean;
 };
 
@@ -18,7 +17,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserAccount | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -43,7 +41,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const storedUser = DatabaseService.getCurrentUser();
         if (storedUser) {
           // We'll directly set the user from the stored data for now
-          // to avoid database issues during login
           console.log("Setting user from stored data:", storedUser);
           setUser(storedUser);
         }
@@ -51,8 +48,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error("Error loading user:", error);
         // Clear potentially corrupted user data
         DatabaseService.saveCurrentUser(null);
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -60,12 +55,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
     console.log("Attempting login with:", email);
     
     try {
       // For the demo app, use hardcoded credentials for admin and regular user
-      // to bypass the database issues
       if (email === "admin@bank.com" && password === "admin123") {
         console.log("Admin login successful");
         
@@ -88,7 +81,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: "Welcome to the admin dashboard",
         });
         
-        setIsLoading(false);
         return true;
       } 
       
@@ -114,7 +106,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: "Welcome to your account",
         });
         
-        setIsLoading(false);
         return true;
       }
       
@@ -127,7 +118,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         variant: "destructive",
       });
       
-      setIsLoading(false);
       return false;
     } catch (error) {
       console.error("Login error:", error);
@@ -138,7 +128,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         variant: "destructive",
       });
       
-      setIsLoading(false);
       return false;
     }
   };
@@ -162,7 +151,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         login,
         logout,
-        isLoading,
         isAuthenticated: !!user,
       }}
     >
