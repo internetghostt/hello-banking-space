@@ -27,6 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initializeDefaultUsers = async () => {
       try {
         await DatabaseService.initializeDefaultUsers();
+        console.log("Default users initialized");
       } catch (error) {
         console.error("Error initializing default users:", error);
       }
@@ -44,9 +45,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Verify the user exists in Supabase
           const userData = await DatabaseService.getUserById(storedUser.id);
           if (userData) {
+            console.log("User loaded from stored data:", userData);
             setUser(userData);
           } else {
             // User doesn't exist or session expired
+            console.log("Stored user not found in database, clearing local storage");
             DatabaseService.saveCurrentUser(null);
           }
         }
@@ -64,12 +67,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
+    console.log("Attempting login with:", email);
     
     try {
       // Check if user exists in Supabase database
       const user = await DatabaseService.getUserByEmail(email);
       
       if (!user) {
+        console.log("User not found with email:", email);
         toast({
           title: "Login failed",
           description: "Invalid email or password",
@@ -80,8 +85,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
       
+      console.log("User found:", user.email, "Checking password...");
+      
       // Simple password check (in a real app, would use proper authentication)
       if (user.password !== password) {
+        console.log("Password incorrect for user:", email);
         toast({
           title: "Login failed",
           description: "Invalid email or password",
@@ -91,6 +99,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         return false;
       }
+      
+      console.log("Password correct for user:", email);
       
       // Don't expose password in the session
       const { password: _, ...userWithoutPassword } = user;
@@ -103,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: user.role === 'admin' ? "Welcome to the admin dashboard" : "Welcome to your account",
       });
       
+      console.log("Login successful for:", email, "Role:", user.role);
       setIsLoading(false);
       return true;
     } catch (error) {
@@ -120,6 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    console.log("Logging out user:", user?.email);
     DatabaseService.saveCurrentUser(null);
     setUser(null);
     
