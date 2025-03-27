@@ -8,6 +8,7 @@ import CreateUserForm from "@/components/admin/CreateUserForm";
 import EditUserForm from "@/components/admin/EditUserForm";
 import UserTable from "@/components/admin/UserTable";
 import { UserAccount, Transaction } from "@/types/user";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Mock user data without passwords for initial display
 const mockUsers: UserAccount[] = [
@@ -47,16 +48,15 @@ const Admin = () => {
   const [showEditForm, setShowEditForm] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     // Check if admin is logged in
-    const userString = localStorage.getItem("user");
-    if (!userString) {
+    if (!user) {
       navigate("/login");
       return;
     }
 
-    const user = JSON.parse(userString);
     if (user.role !== "admin") {
       toast({
         title: "Access denied",
@@ -71,10 +71,12 @@ const Admin = () => {
     const storedUsers = localStorage.getItem("users");
     if (storedUsers) {
       // Use stored users
+      console.log("Loading users from localStorage");
       const parsedUsers = JSON.parse(storedUsers);
       setUsers(parsedUsers);
     } else {
       // Initialize with mock users and store in localStorage
+      console.log("Initializing users with mock data");
       const usersWithPasswords = mockUsers.map(user => ({
         ...user,
         password: `default${user.id}` // Set a default password for mock users
@@ -84,15 +86,10 @@ const Admin = () => {
     }
     
     setIsLoading(false);
-  }, [navigate, toast]);
+  }, [navigate, toast, user]);
 
   const handleLogout = () => {
-    localStorage.removeItem("user");
-    toast({
-      title: "Logged out",
-      description: "You have been logged out successfully",
-    });
-    navigate("/login");
+    logout();
   };
 
   const handleToggleAccountStatus = (userId: string) => {
